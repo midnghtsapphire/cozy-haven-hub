@@ -9,7 +9,7 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { products } from "@/data/products";
 import { toast } from "sonner";
-import { Loader2, Package, Save, AlertTriangle, ShieldAlert, Plus, PackagePlus, ClipboardList } from "lucide-react";
+import { Loader2, Package, Save, AlertTriangle, ShieldAlert, Plus, PackagePlus, ClipboardList, LayoutDashboard } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminOrderManagement from "@/components/admin/AdminOrderManagement";
+import AdminDashboard from "@/components/admin/AdminDashboard";
 
 interface InventoryItem {
   id: string;
@@ -291,8 +292,12 @@ const Admin = () => {
           </div>
 
           {/* Tabs */}
-          <Tabs defaultValue="inventory" className="space-y-6">
+          <Tabs defaultValue="dashboard" className="space-y-6">
             <TabsList className="bg-secondary/50">
+              <TabsTrigger value="dashboard" className="gap-2">
+                <LayoutDashboard className="w-4 h-4" />
+                Dashboard
+              </TabsTrigger>
               <TabsTrigger value="inventory" className="gap-2">
                 <Package className="w-4 h-4" />
                 Inventory
@@ -302,6 +307,10 @@ const Admin = () => {
                 Orders
               </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="dashboard">
+              <AdminDashboard isAdmin={isAdmin} />
+            </TabsContent>
 
             <TabsContent value="inventory" className="space-y-6">
 
