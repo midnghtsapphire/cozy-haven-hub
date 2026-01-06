@@ -85,16 +85,16 @@ const Wishlist = () => {
                       <div className="flex items-center gap-1 mb-1">
                         <Star className="w-3.5 h-3.5 fill-lavender-deep text-lavender-deep" />
                         <span className="text-sm font-medium">{product.rating}</span>
-                        <span className="text-xs text-muted-foreground">({product.reviewCount})</span>
+                        <span className="text-xs text-muted-foreground">({product.review_count})</span>
                       </div>
                       <h3 className="font-serif text-lg font-medium text-foreground group-hover:text-lavender-deep transition-colors">
                         {product.name}
                       </h3>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="font-semibold text-foreground">${product.price}</span>
-                        {product.originalPrice && (
+                        {product.original_price && (
                           <span className="text-sm text-muted-foreground line-through">
-                            ${product.originalPrice}
+                            ${product.original_price}
                           </span>
                         )}
                       </div>
