@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { products } from "@/data/products";
 import { format, subDays, startOfDay, eachDayOfInterval } from "date-fns";
-import { Loader2, DollarSign, ShoppingCart, TrendingUp, Package } from "lucide-react";
+import { Loader2, DollarSign, ShoppingCart, TrendingUp, Package, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AreaChart,
@@ -23,6 +24,7 @@ interface OrderItem {
   id: string;
   product_id: string;
   product_name: string;
+  variant_name: string;
   quantity: number;
   price: number;
 }
@@ -163,6 +165,75 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
     }));
   }, [orders]);
 
+  // Export functions
+  const exportOrdersCSV = () => {
+    const headers = ["Order ID", "Date", "Status", "Items", "Subtotal", "Shipping", "Total"];
+    const rows = orders.map((order) => [
+      order.id,
+      format(new Date(order.created_at), "yyyy-MM-dd HH:mm:ss"),
+      order.status,
+      order.order_items.length,
+      order.subtotal.toFixed(2),
+      order.shipping.toFixed(2),
+      order.total.toFixed(2),
+    ]);
+
+    downloadCSV(headers, rows, "orders-export.csv");
+  };
+
+  const exportItemsCSV = () => {
+    const headers = ["Order ID", "Order Date", "Product", "Variant", "Quantity", "Unit Price", "Line Total"];
+    const rows: (string | number)[][] = [];
+
+    orders.forEach((order) => {
+      order.order_items.forEach((item) => {
+        rows.push([
+          order.id,
+          format(new Date(order.created_at), "yyyy-MM-dd"),
+          item.product_name,
+          item.variant_name,
+          item.quantity,
+          item.price.toFixed(2),
+          (item.price * item.quantity).toFixed(2),
+        ]);
+      });
+    });
+
+    downloadCSV(headers, rows, "order-items-export.csv");
+  };
+
+  const exportRevenueCSV = () => {
+    const headers = ["Date", "Revenue"];
+    const rows = revenueOverTime.map((day) => [day.date, day.revenue.toFixed(2)]);
+
+    downloadCSV(headers, rows, "revenue-by-day.csv");
+  };
+
+  const downloadCSV = (headers: string[], rows: (string | number)[][], filename: string) => {
+    const escapeCSV = (value: string | number) => {
+      const str = String(value);
+      if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const csvContent = [
+      headers.map(escapeCSV).join(","),
+      ...rows.map((row) => row.map(escapeCSV).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -173,6 +244,22 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
 
   return (
     <div className="space-y-6">
+      {/* Export Actions */}
+      <div className="flex flex-wrap gap-3">
+        <Button variant="soft" size="sm" onClick={exportOrdersCSV} disabled={orders.length === 0}>
+          <Download className="w-4 h-4" />
+          Export Orders
+        </Button>
+        <Button variant="soft" size="sm" onClick={exportItemsCSV} disabled={orders.length === 0}>
+          <Download className="w-4 h-4" />
+          Export Items
+        </Button>
+        <Button variant="soft" size="sm" onClick={exportRevenueCSV} disabled={orders.length === 0}>
+          <Download className="w-4 h-4" />
+          Export Revenue
+        </Button>
+      </div>
+
       {/* Metric Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
