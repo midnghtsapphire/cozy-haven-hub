@@ -22,7 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Pencil, Trash2, X, ImageIcon, Palette, Upload } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, X, ImageIcon, Palette, Upload, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 
@@ -94,6 +94,8 @@ const AdminProductManagement = () => {
   const [formData, setFormData] = useState<ProductFormData>(emptyFormData);
   const [variants, setVariants] = useState<VariantFormData[]>([]);
   const [uploading, setUploading] = useState<number | null>(null);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
@@ -331,6 +333,35 @@ const AdminProductManagement = () => {
     }
   };
 
+  // Image drag and drop handlers
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDragEnd = () => {
+    if (draggedIndex !== null && dragOverIndex !== null && draggedIndex !== dragOverIndex) {
+      setFormData((prev) => {
+        const newImages = [...prev.images];
+        const [draggedItem] = newImages.splice(draggedIndex, 1);
+        newImages.splice(dragOverIndex, 0, draggedItem);
+        return { ...prev, images: newImages };
+      });
+    }
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
   // Variant management functions
   const addVariant = () => {
     setVariants((prev) => [
@@ -462,69 +493,89 @@ const AdminProductManagement = () => {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>Product Images</Label>
+                  <Label>Product Images <span className="text-xs text-muted-foreground">(drag to reorder)</span></Label>
                   <Button type="button" variant="ghost" size="sm" onClick={() => addArrayItem("images")}>
                     <Plus className="w-4 h-4 mr-1" />
                     Add
                   </Button>
                 </div>
-                {formData.images.map((image, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex gap-2">
-                      <Input
-                        value={image}
-                        onChange={(e) => updateArrayItem("images", index, e.target.value)}
-                        placeholder="Paste URL or upload image"
-                        className="flex-1"
-                      />
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        ref={(el) => (fileInputRefs.current[index] = el)}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleImageUpload(file, index);
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => fileInputRefs.current[index]?.click()}
-                        disabled={uploading === index}
-                      >
-                        {uploading === index ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Upload className="w-4 h-4" />
-                        )}
-                      </Button>
-                      {formData.images.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeArrayItem("images", index)}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                    {image && (
-                      <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-border">
-                        <img
-                          src={image}
-                          alt={`Preview ${index + 1}`}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = "none";
+                <div className="space-y-2">
+                  {formData.images.map((image, index) => (
+                    <div
+                      key={index}
+                      draggable
+                      onDragStart={() => handleDragStart(index)}
+                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDragEnd={handleDragEnd}
+                      onDragLeave={handleDragLeave}
+                      className={`space-y-2 p-2 rounded-lg transition-colors ${
+                        draggedIndex === index ? "opacity-50 bg-muted" : ""
+                      } ${dragOverIndex === index ? "border-2 border-dashed border-primary bg-primary/5" : "border-2 border-transparent"}`}
+                    >
+                      <div className="flex gap-2 items-center">
+                        <div className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded">
+                          <GripVertical className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                        <Input
+                          value={image}
+                          onChange={(e) => updateArrayItem("images", index, e.target.value)}
+                          placeholder="Paste URL or upload image"
+                          className="flex-1"
+                        />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          ref={(el) => (fileInputRefs.current[index] = el)}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleImageUpload(file, index);
                           }}
                         />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => fileInputRefs.current[index]?.click()}
+                          disabled={uploading === index}
+                        >
+                          {uploading === index ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Upload className="w-4 h-4" />
+                          )}
+                        </Button>
+                        {formData.images.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeArrayItem("images", index)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
+                      {image && (
+                        <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-border ml-8">
+                          <img
+                            src={image}
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = "none";
+                            }}
+                          />
+                          {index === 0 && (
+                            <span className="absolute bottom-0 left-0 right-0 bg-primary/80 text-primary-foreground text-[10px] text-center py-0.5">
+                              Main
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-2">
