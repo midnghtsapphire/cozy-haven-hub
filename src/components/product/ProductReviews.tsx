@@ -201,7 +201,7 @@ const ReviewCard = ({ review, isOwner, onEdit, onDelete }: ReviewCardProps) => {
 };
 
 const ProductReviews = ({ productId }: ProductReviewsProps) => {
-  const { user } = useAuth();
+  const { user, isEmailVerified } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -300,9 +300,17 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
 
             {user ? (
               !userHasReviewed && !editingReview && (
-                <Button variant="soft" className="w-full" onClick={() => setShowForm(true)}>
-                  Write a Review
-                </Button>
+                isEmailVerified ? (
+                  <Button variant="soft" className="w-full" onClick={() => setShowForm(true)}>
+                    Write a Review
+                  </Button>
+                ) : (
+                  <div className="text-center p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                    <p className="text-sm text-amber-800 dark:text-amber-200">
+                      Verify your email to write reviews
+                    </p>
+                  </div>
+                )
               )
             ) : (
               <Button variant="soft" className="w-full" asChild>
