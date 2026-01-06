@@ -157,6 +157,95 @@ export type Database = {
         }
         Relationships: []
       }
+      product_variants: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          in_stock: boolean
+          name: string
+          product_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          in_stock?: boolean
+          name: string
+          product_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          in_stock?: boolean
+          name?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_variants_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          features: string[]
+          id: string
+          images: string[]
+          is_active: boolean
+          long_description: string
+          name: string
+          original_price: number | null
+          price: number
+          rating: number
+          review_count: number
+          tag: string | null
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description: string
+          features?: string[]
+          id?: string
+          images?: string[]
+          is_active?: boolean
+          long_description: string
+          name: string
+          original_price?: number | null
+          price: number
+          rating?: number
+          review_count?: number
+          tag?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          features?: string[]
+          id?: string
+          images?: string[]
+          is_active?: boolean
+          long_description?: string
+          name?: string
+          original_price?: number | null
+          price?: number
+          rating?: number
+          review_count?: number
+          tag?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
