@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { products } from "@/data/products";
-import { format, subDays, startOfDay, endOfDay, eachDayOfInterval, isWithinInterval } from "date-fns";
-import { Loader2, DollarSign, ShoppingCart, TrendingUp, Package, Download, CalendarIcon } from "lucide-react";
+import { format, subDays, startOfDay, endOfDay, eachDayOfInterval, isWithinInterval, differenceInDays } from "date-fns";
+import { Loader2, DollarSign, ShoppingCart, TrendingUp, Package, Download, CalendarIcon, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
@@ -11,6 +11,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
   AreaChart,
@@ -67,6 +69,7 @@ const presetRanges = [
 const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showComparison, setShowComparison] = useState(true);
   const [dateRange, setDateRange] = useState<DateRange>({
     from: subDays(new Date(), 29),
     to: new Date(),
@@ -104,23 +107,25 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
     });
   }, [orders, dateRange]);
 
-  const handlePresetClick = (days: number) => {
-    if (days === 0) {
-      // All time - use earliest order date or 1 year ago
-      const earliestOrder = orders.length > 0 
-        ? new Date(orders[0].created_at) 
-        : subDays(new Date(), 365);
-      setDateRange({
-        from: startOfDay(earliestOrder),
-        to: new Date(),
+  // Calculate previous period date range
+  const previousPeriodRange = useMemo(() => {
+    const periodLength = differenceInDays(dateRange.to, dateRange.from) + 1;
+    return {
+      from: subDays(dateRange.from, periodLength),
+      to: subDays(dateRange.from, 1),
+    };
+  }, [dateRange]);
+
+  // Filter orders for previous period
+  const previousPeriodOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const orderDate = new Date(order.created_at);
+      return isWithinInterval(orderDate, {
+        start: startOfDay(previousPeriodRange.from),
+        end: endOfDay(previousPeriodRange.to),
       });
-    } else {
-      setDateRange({
-        from: subDays(new Date(), days - 1),
-        to: new Date(),
-      });
-    }
-  };
+    });
+  }, [orders, previousPeriodRange]);
 
   // Calculate metrics from filtered orders
   const metrics = useMemo(() => {
@@ -139,6 +144,82 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
       totalItems,
     };
   }, [filteredOrders]);
+
+  // Calculate metrics from previous period orders
+  const previousMetrics = useMemo(() => {
+    const totalRevenue = previousPeriodOrders.reduce((sum, order) => sum + order.total, 0);
+    const totalOrders = previousPeriodOrders.length;
+    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    const totalItems = previousPeriodOrders.reduce(
+      (sum, order) => sum + order.order_items.reduce((itemSum, item) => itemSum + item.quantity, 0),
+      0
+    );
+
+    return {
+      totalRevenue,
+      totalOrders,
+      avgOrderValue,
+      totalItems,
+    };
+  }, [previousPeriodOrders]);
+
+  // Calculate percentage changes
+  const calculateChange = (current: number, previous: number) => {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return ((current - previous) / previous) * 100;
+  };
+
+  const handlePresetClick = (days: number) => {
+    if (days === 0) {
+      // All time - use earliest order date or 1 year ago
+      const earliestOrder = orders.length > 0 
+        ? new Date(orders[0].created_at) 
+        : subDays(new Date(), 365);
+      setDateRange({
+        from: startOfDay(earliestOrder),
+        to: new Date(),
+      });
+    } else {
+      setDateRange({
+        from: subDays(new Date(), days - 1),
+        to: new Date(),
+      });
+    }
+  };
+
+  const changes = useMemo(() => ({
+    revenue: calculateChange(metrics.totalRevenue, previousMetrics.totalRevenue),
+    orders: calculateChange(metrics.totalOrders, previousMetrics.totalOrders),
+    avgOrder: calculateChange(metrics.avgOrderValue, previousMetrics.avgOrderValue),
+    items: calculateChange(metrics.totalItems, previousMetrics.totalItems),
+  }), [metrics, previousMetrics]);
+
+  // Helper component for change indicator
+  const ChangeIndicator = ({ value, showComparison }: { value: number; showComparison: boolean }) => {
+    if (!showComparison) return null;
+    
+    const isPositive = value > 0;
+    const isNeutral = value === 0;
+    
+    return (
+      <div className={cn(
+        "flex items-center gap-1 text-xs font-medium",
+        isNeutral && "text-muted-foreground",
+        isPositive && "text-green-600 dark:text-green-400",
+        !isPositive && !isNeutral && "text-red-600 dark:text-red-400"
+      )}>
+        {isNeutral ? (
+          <Minus className="w-3 h-3" />
+        ) : isPositive ? (
+          <ArrowUpRight className="w-3 h-3" />
+        ) : (
+          <ArrowDownRight className="w-3 h-3" />
+        )}
+        {Math.abs(value).toFixed(1)}%
+      </div>
+    );
+  };
+
 
   // Revenue over time (based on selected date range)
   const revenueOverTime = useMemo(() => {
@@ -299,76 +380,97 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
   return (
     <div className="space-y-6">
       {/* Date Range Filter & Export Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-2xl bg-secondary/30 border border-border">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm font-medium text-foreground">Date Range:</span>
-          <div className="flex items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <CalendarIcon className="w-4 h-4" />
-                  {format(dateRange.from, "MMM d, yyyy")}
+      <div className="flex flex-col gap-4 p-4 rounded-2xl bg-secondary/30 border border-border">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-medium text-foreground">Date Range:</span>
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <CalendarIcon className="w-4 h-4" />
+                    {format(dateRange.from, "MMM d, yyyy")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateRange.from}
+                    onSelect={(date) => date && setDateRange((prev) => ({ ...prev, from: date }))}
+                    disabled={(date) => date > dateRange.to || date > new Date()}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+              <span className="text-muted-foreground">to</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <CalendarIcon className="w-4 h-4" />
+                    {format(dateRange.to, "MMM d, yyyy")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateRange.to}
+                    onSelect={(date) => date && setDateRange((prev) => ({ ...prev, to: date }))}
+                    disabled={(date) => date < dateRange.from || date > new Date()}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {presetRanges.map((preset) => (
+                <Button
+                  key={preset.label}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handlePresetClick(preset.days)}
+                  className="text-xs h-7"
+                >
+                  {preset.label}
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={dateRange.from}
-                  onSelect={(date) => date && setDateRange((prev) => ({ ...prev, from: date }))}
-                  disabled={(date) => date > dateRange.to || date > new Date()}
-                  initialFocus
-                  className="p-3 pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
-            <span className="text-muted-foreground">to</span>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <CalendarIcon className="w-4 h-4" />
-                  {format(dateRange.to, "MMM d, yyyy")}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={dateRange.to}
-                  onSelect={(date) => date && setDateRange((prev) => ({ ...prev, to: date }))}
-                  disabled={(date) => date < dateRange.from || date > new Date()}
-                  initialFocus
-                  className="p-3 pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
+              ))}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-1">
-            {presetRanges.map((preset) => (
-              <Button
-                key={preset.label}
-                variant="ghost"
-                size="sm"
-                onClick={() => handlePresetClick(preset.days)}
-                className="text-xs h-7"
-              >
-                {preset.label}
-              </Button>
-            ))}
+
+          <div className="flex flex-wrap gap-2">
+            <Button variant="soft" size="sm" onClick={exportOrdersCSV} disabled={filteredOrders.length === 0}>
+              <Download className="w-4 h-4" />
+              Orders
+            </Button>
+            <Button variant="soft" size="sm" onClick={exportItemsCSV} disabled={filteredOrders.length === 0}>
+              <Download className="w-4 h-4" />
+              Items
+            </Button>
+            <Button variant="soft" size="sm" onClick={exportRevenueCSV} disabled={filteredOrders.length === 0}>
+              <Download className="w-4 h-4" />
+              Revenue
+            </Button>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Button variant="soft" size="sm" onClick={exportOrdersCSV} disabled={filteredOrders.length === 0}>
-            <Download className="w-4 h-4" />
-            Orders
-          </Button>
-          <Button variant="soft" size="sm" onClick={exportItemsCSV} disabled={filteredOrders.length === 0}>
-            <Download className="w-4 h-4" />
-            Items
-          </Button>
-          <Button variant="soft" size="sm" onClick={exportRevenueCSV} disabled={filteredOrders.length === 0}>
-            <Download className="w-4 h-4" />
-            Revenue
-          </Button>
+        {/* Comparison Toggle and Period Info */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-border">
+          <div className="flex items-center gap-3">
+            <Switch
+              id="comparison-mode"
+              checked={showComparison}
+              onCheckedChange={setShowComparison}
+            />
+            <Label htmlFor="comparison-mode" className="text-sm cursor-pointer">
+              Compare with previous period
+            </Label>
+          </div>
+          {showComparison && (
+            <div className="text-xs text-muted-foreground">
+              Comparing with: {format(previousPeriodRange.from, "MMM d")} - {format(previousPeriodRange.to, "MMM d, yyyy")}
+            </div>
+          )}
         </div>
       </div>
 
@@ -382,11 +484,18 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
             <DollarSign className="h-4 w-4 text-lavender-deep" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">
-              ${metrics.totalRevenue.toFixed(2)}
+            <div className="flex items-center gap-2">
+              <div className="text-2xl font-bold text-foreground">
+                ${metrics.totalRevenue.toFixed(2)}
+              </div>
+              <ChangeIndicator value={changes.revenue} showComparison={showComparison} />
             </div>
             <p className="text-xs text-muted-foreground">
-              From {metrics.totalOrders} orders
+              {showComparison ? (
+                <>vs ${previousMetrics.totalRevenue.toFixed(2)} prev</>
+              ) : (
+                <>From {metrics.totalOrders} orders</>
+              )}
             </p>
           </CardContent>
         </Card>
@@ -399,11 +508,18 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
             <ShoppingCart className="h-4 w-4 text-sage-deep" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">
-              {metrics.totalOrders}
+            <div className="flex items-center gap-2">
+              <div className="text-2xl font-bold text-foreground">
+                {metrics.totalOrders}
+              </div>
+              <ChangeIndicator value={changes.orders} showComparison={showComparison} />
             </div>
             <p className="text-xs text-muted-foreground">
-              All time
+              {showComparison ? (
+                <>vs {previousMetrics.totalOrders} prev</>
+              ) : (
+                <>In selected period</>
+              )}
             </p>
           </CardContent>
         </Card>
@@ -416,11 +532,18 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
             <TrendingUp className="h-4 w-4 text-blush" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">
-              ${metrics.avgOrderValue.toFixed(2)}
+            <div className="flex items-center gap-2">
+              <div className="text-2xl font-bold text-foreground">
+                ${metrics.avgOrderValue.toFixed(2)}
+              </div>
+              <ChangeIndicator value={changes.avgOrder} showComparison={showComparison} />
             </div>
             <p className="text-xs text-muted-foreground">
-              Per order
+              {showComparison ? (
+                <>vs ${previousMetrics.avgOrderValue.toFixed(2)} prev</>
+              ) : (
+                <>Per order</>
+              )}
             </p>
           </CardContent>
         </Card>
@@ -433,11 +556,18 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
             <Package className="h-4 w-4 text-plum" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">
-              {metrics.totalItems}
+            <div className="flex items-center gap-2">
+              <div className="text-2xl font-bold text-foreground">
+                {metrics.totalItems}
+              </div>
+              <ChangeIndicator value={changes.items} showComparison={showComparison} />
             </div>
             <p className="text-xs text-muted-foreground">
-              Total units
+              {showComparison ? (
+                <>vs {previousMetrics.totalItems} prev</>
+              ) : (
+                <>Total units</>
+              )}
             </p>
           </CardContent>
         </Card>
