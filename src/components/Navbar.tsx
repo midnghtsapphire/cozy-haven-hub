@@ -1,12 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, Menu, Search, User } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
+import { cn } from "@/lib/utils";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { itemCount, setIsOpen } = useCart();
+  const location = useLocation();
+
+  const isActive = (path: string) => location.pathname === path;
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border/50">
@@ -19,13 +23,25 @@ const Navbar = () => {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-8">
-            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link 
+              to="/shop" 
+              className={cn(
+                "text-sm transition-colors",
+                isActive("/shop") ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
               Shop
-            </a>
+            </Link>
             <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Collections
             </a>
-            <Link to="/quiz" className="text-sm text-lavender-deep font-medium hover:text-foreground transition-colors">
+            <Link 
+              to="/quiz" 
+              className={cn(
+                "text-sm font-medium transition-colors",
+                isActive("/quiz") ? "text-foreground" : "text-lavender-deep hover:text-foreground"
+              )}
+            >
               ✨ Sanctuary Quiz
             </Link>
             <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -68,13 +84,24 @@ const Navbar = () => {
         {isMenuOpen && (
           <div className="md:hidden py-4 border-t border-border">
             <div className="flex flex-col gap-4">
-              <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors py-2">
+              <Link 
+                to="/shop" 
+                onClick={() => setIsMenuOpen(false)}
+                className={cn(
+                  "text-sm transition-colors py-2",
+                  isActive("/shop") ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
                 Shop
-              </a>
+              </Link>
               <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors py-2">
                 Collections
               </a>
-              <Link to="/quiz" className="text-sm text-lavender-deep font-medium hover:text-foreground transition-colors py-2">
+              <Link 
+                to="/quiz" 
+                onClick={() => setIsMenuOpen(false)}
+                className="text-sm text-lavender-deep font-medium hover:text-foreground transition-colors py-2"
+              >
                 ✨ Sanctuary Quiz
               </Link>
               <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors py-2">
