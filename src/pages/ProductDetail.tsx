@@ -52,7 +52,7 @@ const ProductDetail = () => {
           </div>
 
           {/* Reviews Section */}
-          <ProductReviews reviews={product.reviews} rating={product.rating} reviewCount={product.reviewCount} />
+          <ProductReviews productId={product.id} />
 
           {/* Related Products */}
           <RelatedProducts currentProductId={product.id} products={products} />
