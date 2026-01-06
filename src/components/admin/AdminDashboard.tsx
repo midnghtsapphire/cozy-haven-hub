@@ -1,10 +1,17 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { products } from "@/data/products";
-import { format, subDays, startOfDay, eachDayOfInterval } from "date-fns";
-import { Loader2, DollarSign, ShoppingCart, TrendingUp, Package, Download } from "lucide-react";
+import { format, subDays, startOfDay, endOfDay, eachDayOfInterval, isWithinInterval } from "date-fns";
+import { Loader2, DollarSign, ShoppingCart, TrendingUp, Package, Download, CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import {
   AreaChart,
   Area,
@@ -43,11 +50,27 @@ interface AdminDashboardProps {
   isAdmin: boolean;
 }
 
+type DateRange = {
+  from: Date;
+  to: Date;
+};
+
 const COLORS = ["hsl(var(--lavender-deep))", "hsl(var(--sage))", "hsl(var(--blush))", "hsl(var(--plum))", "#8884d8"];
+
+const presetRanges = [
+  { label: "Last 7 days", days: 7 },
+  { label: "Last 30 days", days: 30 },
+  { label: "Last 90 days", days: 90 },
+  { label: "All time", days: 0 },
+];
 
 const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dateRange, setDateRange] = useState<DateRange>({
+    from: subDays(new Date(), 29),
+    to: new Date(),
+  });
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -70,12 +93,41 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
     fetchOrders();
   }, [isAdmin]);
 
-  // Calculate metrics
+  // Filter orders by date range
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const orderDate = new Date(order.created_at);
+      return isWithinInterval(orderDate, {
+        start: startOfDay(dateRange.from),
+        end: endOfDay(dateRange.to),
+      });
+    });
+  }, [orders, dateRange]);
+
+  const handlePresetClick = (days: number) => {
+    if (days === 0) {
+      // All time - use earliest order date or 1 year ago
+      const earliestOrder = orders.length > 0 
+        ? new Date(orders[0].created_at) 
+        : subDays(new Date(), 365);
+      setDateRange({
+        from: startOfDay(earliestOrder),
+        to: new Date(),
+      });
+    } else {
+      setDateRange({
+        from: subDays(new Date(), days - 1),
+        to: new Date(),
+      });
+    }
+  };
+
+  // Calculate metrics from filtered orders
   const metrics = useMemo(() => {
-    const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
-    const totalOrders = orders.length;
+    const totalRevenue = filteredOrders.reduce((sum, order) => sum + order.total, 0);
+    const totalOrders = filteredOrders.length;
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-    const totalItems = orders.reduce(
+    const totalItems = filteredOrders.reduce(
       (sum, order) => sum + order.order_items.reduce((itemSum, item) => itemSum + item.quantity, 0),
       0
     );
@@ -86,18 +138,18 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
       avgOrderValue,
       totalItems,
     };
-  }, [orders]);
+  }, [filteredOrders]);
 
-  // Revenue over time (last 30 days)
+  // Revenue over time (based on selected date range)
   const revenueOverTime = useMemo(() => {
-    const last30Days = eachDayOfInterval({
-      start: subDays(new Date(), 29),
-      end: new Date(),
+    const days = eachDayOfInterval({
+      start: dateRange.from,
+      end: dateRange.to,
     });
 
-    return last30Days.map((day) => {
+    return days.map((day) => {
       const dayStart = startOfDay(day);
-      const dayRevenue = orders
+      const dayRevenue = filteredOrders
         .filter((order) => {
           const orderDate = startOfDay(new Date(order.created_at));
           return orderDate.getTime() === dayStart.getTime();
@@ -109,12 +161,12 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
         revenue: dayRevenue,
       };
     });
-  }, [orders]);
+  }, [filteredOrders, dateRange]);
 
-  // Orders by status
+  // Orders by status (filtered)
   const ordersByStatus = useMemo(() => {
     const statusCounts: Record<string, number> = {};
-    orders.forEach((order) => {
+    filteredOrders.forEach((order) => {
       statusCounts[order.status] = (statusCounts[order.status] || 0) + 1;
     });
 
@@ -122,13 +174,13 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
       name: status.charAt(0).toUpperCase() + status.slice(1),
       value: count,
     }));
-  }, [orders]);
+  }, [filteredOrders]);
 
-  // Top products by revenue
+  // Top products by revenue (filtered)
   const topProducts = useMemo(() => {
     const productRevenue: Record<string, { name: string; revenue: number; quantity: number }> = {};
 
-    orders.forEach((order) => {
+    filteredOrders.forEach((order) => {
       order.order_items.forEach((item) => {
         if (!productRevenue[item.product_id]) {
           productRevenue[item.product_id] = {
@@ -145,13 +197,13 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
     return Object.values(productRevenue)
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5);
-  }, [orders]);
+  }, [filteredOrders]);
 
-  // Revenue by category
+  // Revenue by category (filtered)
   const revenueByCategory = useMemo(() => {
     const categoryRevenue: Record<string, number> = {};
 
-    orders.forEach((order) => {
+    filteredOrders.forEach((order) => {
       order.order_items.forEach((item) => {
         const product = products.find((p) => p.id === item.product_id);
         const category = product?.category || "Other";
@@ -163,12 +215,12 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
       name,
       value,
     }));
-  }, [orders]);
+  }, [filteredOrders]);
 
-  // Export functions
+  // Export functions (use filtered orders)
   const exportOrdersCSV = () => {
     const headers = ["Order ID", "Date", "Status", "Items", "Subtotal", "Shipping", "Total"];
-    const rows = orders.map((order) => [
+    const rows = filteredOrders.map((order) => [
       order.id,
       format(new Date(order.created_at), "yyyy-MM-dd HH:mm:ss"),
       order.status,
@@ -178,14 +230,15 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
       order.total.toFixed(2),
     ]);
 
-    downloadCSV(headers, rows, "orders-export.csv");
+    const dateStr = `${format(dateRange.from, "yyyy-MM-dd")}_to_${format(dateRange.to, "yyyy-MM-dd")}`;
+    downloadCSV(headers, rows, `orders-${dateStr}.csv`);
   };
 
   const exportItemsCSV = () => {
     const headers = ["Order ID", "Order Date", "Product", "Variant", "Quantity", "Unit Price", "Line Total"];
     const rows: (string | number)[][] = [];
 
-    orders.forEach((order) => {
+    filteredOrders.forEach((order) => {
       order.order_items.forEach((item) => {
         rows.push([
           order.id,
@@ -199,7 +252,8 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
       });
     });
 
-    downloadCSV(headers, rows, "order-items-export.csv");
+    const dateStr = `${format(dateRange.from, "yyyy-MM-dd")}_to_${format(dateRange.to, "yyyy-MM-dd")}`;
+    downloadCSV(headers, rows, `order-items-${dateStr}.csv`);
   };
 
   const exportRevenueCSV = () => {
@@ -244,20 +298,78 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
 
   return (
     <div className="space-y-6">
-      {/* Export Actions */}
-      <div className="flex flex-wrap gap-3">
-        <Button variant="soft" size="sm" onClick={exportOrdersCSV} disabled={orders.length === 0}>
-          <Download className="w-4 h-4" />
-          Export Orders
-        </Button>
-        <Button variant="soft" size="sm" onClick={exportItemsCSV} disabled={orders.length === 0}>
-          <Download className="w-4 h-4" />
-          Export Items
-        </Button>
-        <Button variant="soft" size="sm" onClick={exportRevenueCSV} disabled={orders.length === 0}>
-          <Download className="w-4 h-4" />
-          Export Revenue
-        </Button>
+      {/* Date Range Filter & Export Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-2xl bg-secondary/30 border border-border">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm font-medium text-foreground">Date Range:</span>
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <CalendarIcon className="w-4 h-4" />
+                  {format(dateRange.from, "MMM d, yyyy")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dateRange.from}
+                  onSelect={(date) => date && setDateRange((prev) => ({ ...prev, from: date }))}
+                  disabled={(date) => date > dateRange.to || date > new Date()}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+            <span className="text-muted-foreground">to</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <CalendarIcon className="w-4 h-4" />
+                  {format(dateRange.to, "MMM d, yyyy")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dateRange.to}
+                  onSelect={(date) => date && setDateRange((prev) => ({ ...prev, to: date }))}
+                  disabled={(date) => date < dateRange.from || date > new Date()}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {presetRanges.map((preset) => (
+              <Button
+                key={preset.label}
+                variant="ghost"
+                size="sm"
+                onClick={() => handlePresetClick(preset.days)}
+                className="text-xs h-7"
+              >
+                {preset.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button variant="soft" size="sm" onClick={exportOrdersCSV} disabled={filteredOrders.length === 0}>
+            <Download className="w-4 h-4" />
+            Orders
+          </Button>
+          <Button variant="soft" size="sm" onClick={exportItemsCSV} disabled={filteredOrders.length === 0}>
+            <Download className="w-4 h-4" />
+            Items
+          </Button>
+          <Button variant="soft" size="sm" onClick={exportRevenueCSV} disabled={filteredOrders.length === 0}>
+            <Download className="w-4 h-4" />
+            Revenue
+          </Button>
+        </div>
       </div>
 
       {/* Metric Cards */}
