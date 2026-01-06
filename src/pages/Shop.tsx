@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { products } from "@/data/products";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
+import { useProductInventory } from "@/hooks/useInventory";
+import StockIndicator from "@/components/StockIndicator";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -39,13 +41,20 @@ const ProductCard = ({ product }: { product: typeof products[0] }) => {
   const { addItem } = useCart();
   const { isInWishlist, toggleItem } = useWishlist();
   const isWishlisted = isInWishlist(product.id);
+  const { getVariantStockStatus, getVariantStock } = useProductInventory(product.id);
+  
+  const defaultVariant = product.variants[0];
+  const stockStatus = getVariantStockStatus(defaultVariant.id);
+  const stockInfo = getVariantStock(defaultVariant.id);
+  const isOutOfStock = stockStatus === "out_of_stock";
 
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    addItem(product, product.variants[0], 1);
+    if (isOutOfStock) return;
+    addItem(product, defaultVariant, 1);
     toast.success(`${product.name} added to cart!`, {
-      description: product.variants[0].name,
+      description: defaultVariant.name,
     });
   };
 
@@ -88,19 +97,30 @@ const ProductCard = ({ product }: { product: typeof products[0] }) => {
               className="w-full" 
               size="lg"
               onClick={handleQuickAdd}
+              disabled={isOutOfStock}
             >
               <ShoppingBag className="w-4 h-4" />
-              Quick Add
+              {isOutOfStock ? "Out of Stock" : "Quick Add"}
             </Button>
           </div>
         </div>
       </Link>
 
       <Link to={`/product/${product.id}`} className="block space-y-2">
-        <div className="flex items-center gap-1">
-          <Star className="w-4 h-4 fill-lavender-deep text-lavender-deep" />
-          <span className="text-sm font-medium text-foreground">{product.rating}</span>
-          <span className="text-sm text-muted-foreground">({product.reviewCount})</span>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <Star className="w-4 h-4 fill-lavender-deep text-lavender-deep" />
+            <span className="text-sm font-medium text-foreground">{product.rating}</span>
+            <span className="text-sm text-muted-foreground">({product.reviewCount})</span>
+          </div>
+          {stockStatus !== "in_stock" && (
+            <StockIndicator 
+              status={stockStatus} 
+              quantity={stockInfo?.stock_quantity}
+              showQuantity={stockStatus === "low_stock"}
+              size="sm"
+            />
+          )}
         </div>
         
         <h3 className="font-serif text-xl font-medium text-foreground group-hover:text-lavender-deep transition-colors">
