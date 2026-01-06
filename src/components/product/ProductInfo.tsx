@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Check, Heart, Minus, Plus, ShoppingBag, Sparkles, Truck } from "lucide-react";
 import type { Product } from "@/data/products";
+import { useCart } from "@/contexts/CartContext";
+import { toast } from "sonner";
 
 interface ProductInfoProps {
   product: Product;
@@ -12,9 +14,17 @@ const ProductInfo = ({ product }: ProductInfoProps) => {
   const [selectedVariant, setSelectedVariant] = useState(product.variants[0]);
   const [quantity, setQuantity] = useState(1);
   const [isWishlisted, setIsWishlisted] = useState(false);
+  const { addItem } = useCart();
 
   const handleQuantityChange = (delta: number) => {
     setQuantity((prev) => Math.max(1, Math.min(10, prev + delta)));
+  };
+
+  const handleAddToCart = () => {
+    addItem(product, selectedVariant, quantity);
+    toast.success(`${product.name} added to cart!`, {
+      description: `${quantity}x ${selectedVariant.name}`,
+    });
   };
 
   return (
@@ -135,7 +145,7 @@ const ProductInfo = ({ product }: ProductInfoProps) => {
 
       {/* Actions */}
       <div className="flex gap-4">
-        <Button variant="hero" size="xl" className="flex-1">
+        <Button variant="hero" size="xl" className="flex-1" onClick={handleAddToCart}>
           <ShoppingBag className="w-5 h-5" />
           Add to Cart — ${product.price * quantity}
         </Button>

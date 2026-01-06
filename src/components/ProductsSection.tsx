@@ -2,8 +2,21 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Heart, ShoppingBag, Star } from "lucide-react";
 import { products } from "@/data/products";
+import { useCart } from "@/contexts/CartContext";
+import { toast } from "sonner";
 
 const ProductCard = ({ product }: { product: typeof products[0] }) => {
+  const { addItem } = useCart();
+
+  const handleQuickAdd = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    addItem(product, product.variants[0], 1);
+    toast.success(`${product.name} added to cart!`, {
+      description: product.variants[0].name,
+    });
+  };
+
   return (
     <div className="group relative">
       {/* Image Container */}
@@ -24,7 +37,10 @@ const ProductCard = ({ product }: { product: typeof products[0] }) => {
 
           {/* Wishlist Button */}
           <button 
-            onClick={(e) => e.preventDefault()}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
             className="absolute top-4 right-4 w-10 h-10 rounded-full bg-background/90 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-blush-light"
           >
             <Heart className="w-5 h-5 text-foreground" />
@@ -36,7 +52,7 @@ const ProductCard = ({ product }: { product: typeof products[0] }) => {
               variant="hero" 
               className="w-full" 
               size="lg"
-              onClick={(e) => e.preventDefault()}
+              onClick={handleQuickAdd}
             >
               <ShoppingBag className="w-4 h-4" />
               Quick Add
