@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Check, Heart, Minus, Plus, ShoppingBag, Sparkles, Truck } from "lucide-react";
-import type { Product } from "@/data/products";
+import type { Product } from "@/hooks/useProducts";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { useProductInventory } from "@/hooks/useInventory";
@@ -21,8 +21,8 @@ const ProductInfo = ({ product }: ProductInfoProps) => {
   const isWishlisted = isInWishlist(product.id);
   const { getVariantStockStatus, getVariantStock } = useProductInventory(product.id);
   
-  const stockStatus = getVariantStockStatus(selectedVariant.id);
-  const stockInfo = getVariantStock(selectedVariant.id);
+  const stockStatus = selectedVariant ? getVariantStockStatus(selectedVariant.id) : "in_stock";
+  const stockInfo = selectedVariant ? getVariantStock(selectedVariant.id) : null;
   const isOutOfStock = stockStatus === "out_of_stock";
 
   const handleQuantityChange = (delta: number) => {
@@ -30,6 +30,7 @@ const ProductInfo = ({ product }: ProductInfoProps) => {
   };
 
   const handleAddToCart = () => {
+    if (!selectedVariant) return;
     addItem(product, selectedVariant, quantity);
     toast.success(`${product.name} added to cart!`, {
       description: `${quantity}x ${selectedVariant.name}`,
@@ -71,18 +72,18 @@ const ProductInfo = ({ product }: ProductInfoProps) => {
             ))}
           </div>
           <span className="text-sm text-foreground font-medium">{product.rating}</span>
-          <span className="text-sm text-muted-foreground">({product.reviewCount} reviews)</span>
+          <span className="text-sm text-muted-foreground">({product.review_count} reviews)</span>
         </div>
       </div>
 
       {/* Price */}
       <div className="flex items-baseline gap-3">
         <span className="text-3xl font-bold text-foreground">${product.price}</span>
-        {product.originalPrice && (
+        {product.original_price && (
           <>
-            <span className="text-xl text-muted-foreground line-through">${product.originalPrice}</span>
+            <span className="text-xl text-muted-foreground line-through">${product.original_price}</span>
             <span className="px-2 py-1 text-xs font-medium rounded-full bg-sage text-accent-foreground">
-              Save ${product.originalPrice - product.price}
+              Save ${product.original_price - product.price}
             </span>
           </>
         )}
@@ -90,7 +91,7 @@ const ProductInfo = ({ product }: ProductInfoProps) => {
 
       {/* Description */}
       <p className="text-muted-foreground leading-relaxed">
-        {product.longDescription}
+        {product.long_description}
       </p>
 
       {/* Stock Status */}
@@ -101,39 +102,41 @@ const ProductInfo = ({ product }: ProductInfoProps) => {
       />
 
       {/* Variant Selector */}
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-3">
-          Color / Scent: <span className="text-lavender-deep">{selectedVariant.name}</span>
-        </label>
-        <div className="flex flex-wrap gap-3">
-          {product.variants.map((variant) => (
-            <button
-              key={variant.id}
-              onClick={() => variant.inStock && setSelectedVariant(variant)}
-              disabled={!variant.inStock}
-              className={cn(
-                "relative w-12 h-12 rounded-full transition-all duration-200",
-                "ring-2 ring-offset-2 ring-offset-background",
-                !variant.inStock && "opacity-40 cursor-not-allowed",
-                selectedVariant.id === variant.id
-                  ? "ring-foreground"
-                  : "ring-transparent hover:ring-border"
-              )}
-              style={{ backgroundColor: variant.color }}
-              title={variant.name}
-            >
-              {selectedVariant.id === variant.id && (
-                <Check className="absolute inset-0 m-auto w-5 h-5 text-foreground mix-blend-difference" />
-              )}
-              {!variant.inStock && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-full h-0.5 bg-foreground/50 rotate-45" />
-                </div>
-              )}
-            </button>
-          ))}
+      {product.variants.length > 0 && (
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-3">
+            Color / Scent: <span className="text-lavender-deep">{selectedVariant?.name}</span>
+          </label>
+          <div className="flex flex-wrap gap-3">
+            {product.variants.map((variant) => (
+              <button
+                key={variant.id}
+                onClick={() => variant.in_stock && setSelectedVariant(variant)}
+                disabled={!variant.in_stock}
+                className={cn(
+                  "relative w-12 h-12 rounded-full transition-all duration-200",
+                  "ring-2 ring-offset-2 ring-offset-background",
+                  !variant.in_stock && "opacity-40 cursor-not-allowed",
+                  selectedVariant?.id === variant.id
+                    ? "ring-foreground"
+                    : "ring-transparent hover:ring-border"
+                )}
+                style={{ backgroundColor: variant.color || "#ccc" }}
+                title={variant.name}
+              >
+                {selectedVariant?.id === variant.id && (
+                  <Check className="absolute inset-0 m-auto w-5 h-5 text-foreground mix-blend-difference" />
+                )}
+                {!variant.in_stock && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-full h-0.5 bg-foreground/50 rotate-45" />
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Quantity */}
       <div>
@@ -166,7 +169,7 @@ const ProductInfo = ({ product }: ProductInfoProps) => {
           size="xl" 
           className="flex-1" 
           onClick={handleAddToCart}
-          disabled={isOutOfStock}
+          disabled={isOutOfStock || !selectedVariant}
         >
           <ShoppingBag className="w-5 h-5" />
           {isOutOfStock ? "Out of Stock" : `Add to Cart — $${product.price * quantity}`}
@@ -197,17 +200,19 @@ const ProductInfo = ({ product }: ProductInfoProps) => {
       </div>
 
       {/* Features */}
-      <div className="space-y-3">
-        <h3 className="font-medium text-foreground">Features</h3>
-        <ul className="space-y-2">
-          {product.features.map((feature, index) => (
-            <li key={index} className="flex items-start gap-3 text-sm text-muted-foreground">
-              <Check className="w-4 h-4 text-lavender-deep flex-shrink-0 mt-0.5" />
-              {feature}
-            </li>
-          ))}
-        </ul>
-      </div>
+      {product.features.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="font-medium text-foreground">Features</h3>
+          <ul className="space-y-2">
+            {product.features.map((feature, index) => (
+              <li key={index} className="flex items-start gap-3 text-sm text-muted-foreground">
+                <Check className="w-4 h-4 text-lavender-deep flex-shrink-0 mt-0.5" />
+                {feature}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 };

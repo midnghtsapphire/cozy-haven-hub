@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
-import { Product, products } from "@/data/products";
+import { Product } from "@/hooks/useProducts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -25,21 +25,60 @@ export const WishlistProvider = ({ children }: { children: ReactNode }) => {
   // Load wishlist from localStorage or database
   useEffect(() => {
     if (user) {
-      // Load from database
       setLoading(true);
-      supabase
-        .from("wishlists")
-        .select("product_id")
-        .eq("user_id", user.id)
-        .then(({ data, error }) => {
-          if (!error && data) {
-            const wishlistProducts = data
-              .map((item) => products.find((p) => p.id === item.product_id))
-              .filter(Boolean) as Product[];
-            setItems(wishlistProducts);
-          }
+
+      const loadWishlist = async () => {
+        // Get wishlist items
+        const { data: wishlistData, error: wishlistError } = await supabase
+          .from("wishlists")
+          .select("product_id")
+          .eq("user_id", user.id);
+
+        if (wishlistError || !wishlistData || wishlistData.length === 0) {
           setLoading(false);
-        });
+          return;
+        }
+
+        const productIds = wishlistData.map((item) => item.product_id);
+
+        // Fetch products from database
+        const { data: productsData, error: productsError } = await supabase
+          .from("products")
+          .select(`*, product_variants(*)`)
+          .in("id", productIds);
+
+        if (productsError || !productsData) {
+          setLoading(false);
+          return;
+        }
+
+        const wishlistProducts: Product[] = productsData.map((dbProduct) => ({
+          id: dbProduct.id,
+          name: dbProduct.name,
+          description: dbProduct.description,
+          long_description: dbProduct.long_description,
+          price: Number(dbProduct.price),
+          original_price: dbProduct.original_price ? Number(dbProduct.original_price) : null,
+          images: dbProduct.images,
+          rating: Number(dbProduct.rating),
+          review_count: dbProduct.review_count,
+          tag: dbProduct.tag,
+          category: dbProduct.category,
+          features: dbProduct.features,
+          is_active: dbProduct.is_active,
+          variants: dbProduct.product_variants?.map((v: any) => ({
+            id: v.id,
+            name: v.name,
+            color: v.color,
+            in_stock: v.in_stock,
+          })) || [],
+        }));
+
+        setItems(wishlistProducts);
+        setLoading(false);
+      };
+
+      loadWishlist();
     } else {
       // Load from localStorage
       const stored = localStorage.getItem(STORAGE_KEY);

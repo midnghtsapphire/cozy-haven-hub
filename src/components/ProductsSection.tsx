@@ -1,13 +1,14 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Heart, ShoppingBag, Star } from "lucide-react";
-import { products } from "@/data/products";
+import { useProducts, Product } from "@/hooks/useProducts";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const ProductCard = ({ product }: { product: typeof products[0] }) => {
+const ProductCard = ({ product }: { product: Product }) => {
   const { addItem } = useCart();
   const { isInWishlist, toggleItem } = useWishlist();
   const isWishlisted = isInWishlist(product.id);
@@ -15,6 +16,7 @@ const ProductCard = ({ product }: { product: typeof products[0] }) => {
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!product.variants[0]) return;
     addItem(product, product.variants[0], 1);
     toast.success(`${product.name} added to cart!`, {
       description: product.variants[0].name,
@@ -34,7 +36,7 @@ const ProductCard = ({ product }: { product: typeof products[0] }) => {
       <Link to={`/product/${product.id}`} className="block">
         <div className="relative overflow-hidden rounded-2xl bg-secondary mb-4">
           <img
-            src={product.images[0]}
+            src={product.images[0] || "/placeholder.svg"}
             alt={product.name}
             className="w-full aspect-square object-cover transition-transform duration-500 group-hover:scale-105"
           />
@@ -64,6 +66,7 @@ const ProductCard = ({ product }: { product: typeof products[0] }) => {
               className="w-full" 
               size="lg"
               onClick={handleQuickAdd}
+              disabled={!product.variants[0]}
             >
               <ShoppingBag className="w-4 h-4" />
               Quick Add
@@ -77,7 +80,7 @@ const ProductCard = ({ product }: { product: typeof products[0] }) => {
         <div className="flex items-center gap-1">
           <Star className="w-4 h-4 fill-lavender-deep text-lavender-deep" />
           <span className="text-sm font-medium text-foreground">{product.rating}</span>
-          <span className="text-sm text-muted-foreground">({product.reviewCount})</span>
+          <span className="text-sm text-muted-foreground">({product.review_count})</span>
         </div>
         
         <h3 className="font-serif text-xl font-medium text-foreground group-hover:text-lavender-deep transition-colors">
@@ -90,8 +93,8 @@ const ProductCard = ({ product }: { product: typeof products[0] }) => {
         
         <div className="flex items-center gap-2">
           <span className="text-lg font-semibold text-foreground">${product.price}</span>
-          {product.originalPrice && (
-            <span className="text-sm text-muted-foreground line-through">${product.originalPrice}</span>
+          {product.original_price && (
+            <span className="text-sm text-muted-foreground line-through">${product.original_price}</span>
           )}
         </div>
       </Link>
@@ -99,7 +102,19 @@ const ProductCard = ({ product }: { product: typeof products[0] }) => {
   );
 };
 
+const ProductSkeleton = () => (
+  <div className="space-y-4">
+    <Skeleton className="w-full aspect-square rounded-2xl" />
+    <Skeleton className="h-4 w-24" />
+    <Skeleton className="h-6 w-48" />
+    <Skeleton className="h-4 w-32" />
+    <Skeleton className="h-6 w-20" />
+  </div>
+);
+
 const ProductsSection = () => {
+  const { products, loading } = useProducts();
+  
   // Show only first 3 products on homepage
   const displayProducts = products.slice(0, 3);
 
@@ -121,9 +136,13 @@ const ProductsSection = () => {
 
         {/* Products Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {displayProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+          {loading ? (
+            [1, 2, 3].map((i) => <ProductSkeleton key={i} />)
+          ) : (
+            displayProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))
+          )}
         </div>
 
         {/* CTA */}

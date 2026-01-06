@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
-import type { Product, ProductVariant } from "@/data/products";
-import { products } from "@/data/products";
+import type { Product, ProductVariant } from "@/hooks/useProducts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -38,31 +37,85 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (user) {
       setLoading(true);
-      supabase
-        .from("carts")
-        .select("*")
-        .eq("user_id", user.id)
-        .then(({ data, error }) => {
-          if (!error && data) {
-            const cartItems: CartItem[] = data
-              .map((item) => {
-                const product = products.find((p) => p.id === item.product_id);
-                const variant = product?.variants.find((v) => v.id === item.variant_id);
-                if (product && variant) {
-                  return {
-                    productId: product.id,
-                    product,
-                    variant,
-                    quantity: item.quantity,
-                  };
-                }
-                return null;
-              })
-              .filter(Boolean) as CartItem[];
-            setItems(cartItems);
-          }
+      
+      const loadCart = async () => {
+        // First get cart items
+        const { data: cartData, error: cartError } = await supabase
+          .from("carts")
+          .select("*")
+          .eq("user_id", user.id);
+
+        if (cartError || !cartData || cartData.length === 0) {
           setLoading(false);
-        });
+          return;
+        }
+
+        // Get unique product IDs
+        const productIds = [...new Set(cartData.map((item) => item.product_id))];
+
+        // Fetch products with variants from database
+        const { data: productsData, error: productsError } = await supabase
+          .from("products")
+          .select(`*, product_variants(*)`)
+          .in("id", productIds);
+
+        if (productsError || !productsData) {
+          setLoading(false);
+          return;
+        }
+
+        // Map cart items to CartItem format
+        const cartItems: CartItem[] = cartData
+          .map((item) => {
+            const dbProduct = productsData.find((p) => p.id === item.product_id);
+            if (!dbProduct) return null;
+
+            const variant = dbProduct.product_variants?.find(
+              (v: any) => v.id === item.variant_id
+            );
+            if (!variant) return null;
+
+            const product: Product = {
+              id: dbProduct.id,
+              name: dbProduct.name,
+              description: dbProduct.description,
+              long_description: dbProduct.long_description,
+              price: Number(dbProduct.price),
+              original_price: dbProduct.original_price ? Number(dbProduct.original_price) : null,
+              images: dbProduct.images,
+              rating: Number(dbProduct.rating),
+              review_count: dbProduct.review_count,
+              tag: dbProduct.tag,
+              category: dbProduct.category,
+              features: dbProduct.features,
+              is_active: dbProduct.is_active,
+              variants: dbProduct.product_variants?.map((v: any) => ({
+                id: v.id,
+                name: v.name,
+                color: v.color,
+                in_stock: v.in_stock,
+              })) || [],
+            };
+
+            return {
+              productId: product.id,
+              product,
+              variant: {
+                id: variant.id,
+                name: variant.name,
+                color: variant.color,
+                in_stock: variant.in_stock,
+              },
+              quantity: item.quantity,
+            };
+          })
+          .filter(Boolean) as CartItem[];
+
+        setItems(cartItems);
+        setLoading(false);
+      };
+
+      loadCart();
     } else {
       const stored = localStorage.getItem(STORAGE_KEY);
       setItems(stored ? JSON.parse(stored) : []);

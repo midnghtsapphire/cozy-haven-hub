@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { products } from "@/data/products";
+import { useProducts, Product } from "@/hooks/useProducts";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { useProductInventory } from "@/hooks/useInventory";
@@ -17,17 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Heart, ShoppingBag, Star, SlidersHorizontal, X } from "lucide-react";
+import { Heart, ShoppingBag, Star, SlidersHorizontal, X, Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type SortOption = "featured" | "price-asc" | "price-desc" | "rating" | "newest";
-
-const categories = [
-  { id: "all", name: "All Products", count: products.length },
-  { id: "Lighting", name: "Lighting", count: products.filter(p => p.category === "Lighting").length },
-  { id: "Scents", name: "Scents", count: products.filter(p => p.category === "Scents").length },
-  { id: "Comfort", name: "Comfort", count: products.filter(p => p.category === "Comfort").length },
-  { id: "Organization", name: "Organization", count: products.filter(p => p.category === "Organization").length },
-];
 
 const sortOptions = [
   { value: "featured", label: "Featured" },
@@ -37,21 +30,21 @@ const sortOptions = [
   { value: "newest", label: "Newest" },
 ];
 
-const ProductCard = ({ product }: { product: typeof products[0] }) => {
+const ProductCard = ({ product }: { product: Product }) => {
   const { addItem } = useCart();
   const { isInWishlist, toggleItem } = useWishlist();
   const isWishlisted = isInWishlist(product.id);
   const { getVariantStockStatus, getVariantStock } = useProductInventory(product.id);
   
   const defaultVariant = product.variants[0];
-  const stockStatus = getVariantStockStatus(defaultVariant.id);
-  const stockInfo = getVariantStock(defaultVariant.id);
+  const stockStatus = defaultVariant ? getVariantStockStatus(defaultVariant.id) : "in_stock";
+  const stockInfo = defaultVariant ? getVariantStock(defaultVariant.id) : null;
   const isOutOfStock = stockStatus === "out_of_stock";
 
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (isOutOfStock) return;
+    if (isOutOfStock || !defaultVariant) return;
     addItem(product, defaultVariant, 1);
     toast.success(`${product.name} added to cart!`, {
       description: defaultVariant.name,
@@ -70,7 +63,7 @@ const ProductCard = ({ product }: { product: typeof products[0] }) => {
       <Link to={`/product/${product.id}`} className="block">
         <div className="relative overflow-hidden rounded-2xl bg-secondary mb-4">
           <img
-            src={product.images[0]}
+            src={product.images[0] || "/placeholder.svg"}
             alt={product.name}
             className="w-full aspect-square object-cover transition-transform duration-500 group-hover:scale-105"
           />
@@ -97,7 +90,7 @@ const ProductCard = ({ product }: { product: typeof products[0] }) => {
               className="w-full" 
               size="lg"
               onClick={handleQuickAdd}
-              disabled={isOutOfStock}
+              disabled={isOutOfStock || !defaultVariant}
             >
               <ShoppingBag className="w-4 h-4" />
               {isOutOfStock ? "Out of Stock" : "Quick Add"}
@@ -111,7 +104,7 @@ const ProductCard = ({ product }: { product: typeof products[0] }) => {
           <div className="flex items-center gap-1">
             <Star className="w-4 h-4 fill-lavender-deep text-lavender-deep" />
             <span className="text-sm font-medium text-foreground">{product.rating}</span>
-            <span className="text-sm text-muted-foreground">({product.reviewCount})</span>
+            <span className="text-sm text-muted-foreground">({product.review_count})</span>
           </div>
           {stockStatus !== "in_stock" && (
             <StockIndicator 
@@ -133,8 +126,8 @@ const ProductCard = ({ product }: { product: typeof products[0] }) => {
         
         <div className="flex items-center gap-2">
           <span className="text-lg font-semibold text-foreground">${product.price}</span>
-          {product.originalPrice && (
-            <span className="text-sm text-muted-foreground line-through">${product.originalPrice}</span>
+          {product.original_price && (
+            <span className="text-sm text-muted-foreground line-through">${product.original_price}</span>
           )}
         </div>
       </Link>
@@ -142,7 +135,18 @@ const ProductCard = ({ product }: { product: typeof products[0] }) => {
   );
 };
 
+const ProductSkeleton = () => (
+  <div className="space-y-4">
+    <Skeleton className="w-full aspect-square rounded-2xl" />
+    <Skeleton className="h-4 w-24" />
+    <Skeleton className="h-6 w-48" />
+    <Skeleton className="h-4 w-32" />
+    <Skeleton className="h-6 w-20" />
+  </div>
+);
+
 const Shop = () => {
+  const { products, loading, categories } = useProducts();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [sortBy, setSortBy] = useState<SortOption>("featured");
   const [showMobileFilters, setShowMobileFilters] = useState(false);
@@ -167,7 +171,7 @@ const Shop = () => {
         result.sort((a, b) => b.rating - a.rating);
         break;
       case "newest":
-        result.sort((a, b) => parseInt(b.id) - parseInt(a.id));
+        // Already sorted by created_at desc from DB
         break;
       default:
         // Featured - keep original order
@@ -175,7 +179,7 @@ const Shop = () => {
     }
 
     return result;
-  }, [selectedCategory, sortBy]);
+  }, [products, selectedCategory, sortBy]);
 
   const activeCategory = categories.find((c) => c.id === selectedCategory);
 
@@ -242,9 +246,15 @@ const Shop = () => {
 
                 {/* Results Count */}
                 <p className="text-sm text-muted-foreground">
-                  Showing <span className="font-medium text-foreground">{filteredAndSortedProducts.length}</span> products
-                  {selectedCategory !== "all" && (
-                    <> in <span className="font-medium text-foreground">{activeCategory?.name}</span></>
+                  {loading ? (
+                    "Loading..."
+                  ) : (
+                    <>
+                      Showing <span className="font-medium text-foreground">{filteredAndSortedProducts.length}</span> products
+                      {selectedCategory !== "all" && (
+                        <> in <span className="font-medium text-foreground">{activeCategory?.name}</span></>
+                      )}
+                    </>
                   )}
                 </p>
 
@@ -279,7 +289,13 @@ const Shop = () => {
               )}
 
               {/* Products Grid */}
-              {filteredAndSortedProducts.length > 0 ? (
+              {loading ? (
+                <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-8">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <ProductSkeleton key={i} />
+                  ))}
+                </div>
+              ) : filteredAndSortedProducts.length > 0 ? (
                 <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-8">
                   {filteredAndSortedProducts.map((product) => (
                     <ProductCard key={product.id} product={product} />
