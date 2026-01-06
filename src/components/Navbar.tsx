@@ -1,10 +1,11 @@
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Menu, Search, User, Heart, LogOut, Package } from "lucide-react";
+import { ShoppingBag, Menu, Search, User, Heart, LogOut, Package, Settings } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdmin } from "@/hooks/useAdmin";
 import { cn } from "@/lib/utils";
 import SearchDialog from "@/components/SearchDialog";
 import {
@@ -22,6 +23,7 @@ const Navbar = () => {
   const { itemCount, setIsOpen } = useCart();
   const { itemCount: wishlistCount } = useWishlist();
   const { user, signOut } = useAuth();
+  const { isAdmin } = useAdmin();
   const location = useLocation();
 
   const handleSignOut = async () => {
@@ -137,6 +139,17 @@ const Navbar = () => {
                         Orders
                       </Link>
                     </DropdownMenuItem>
+                    {isAdmin && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                          <Link to="/admin" className="cursor-pointer">
+                            <Settings className="w-4 h-4 mr-2" />
+                            Admin Panel
+                          </Link>
+                        </DropdownMenuItem>
+                      </>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive">
                       <LogOut className="w-4 h-4 mr-2" />
