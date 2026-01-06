@@ -221,14 +221,19 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
   };
 
 
-  // Revenue over time (based on selected date range)
+  // Revenue over time (based on selected date range) with previous period comparison
   const revenueOverTime = useMemo(() => {
     const days = eachDayOfInterval({
       start: dateRange.from,
       end: dateRange.to,
     });
 
-    return days.map((day) => {
+    const previousDays = eachDayOfInterval({
+      start: previousPeriodRange.from,
+      end: previousPeriodRange.to,
+    });
+
+    return days.map((day, index) => {
       const dayStart = startOfDay(day);
       const dayRevenue = filteredOrders
         .filter((order) => {
@@ -237,12 +242,24 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
         })
         .reduce((sum, order) => sum + order.total, 0);
 
+      // Get corresponding previous period day
+      const previousDay = previousDays[index];
+      const previousDayRevenue = previousDay
+        ? previousPeriodOrders
+            .filter((order) => {
+              const orderDate = startOfDay(new Date(order.created_at));
+              return orderDate.getTime() === startOfDay(previousDay).getTime();
+            })
+            .reduce((sum, order) => sum + order.total, 0)
+        : 0;
+
       return {
         date: format(day, "MMM d"),
         revenue: dayRevenue,
+        previousRevenue: previousDayRevenue,
       };
     });
-  }, [filteredOrders, dateRange]);
+  }, [filteredOrders, previousPeriodOrders, dateRange, previousPeriodRange]);
 
   // Orders by status (filtered)
   const ordersByStatus = useMemo(() => {
@@ -577,8 +594,20 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Revenue Over Time */}
         <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Revenue Over Time (Last 30 Days)</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Revenue Over Time</CardTitle>
+            {showComparison && (
+              <div className="flex items-center gap-4 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-0.5 bg-lavender-deep rounded" />
+                  <span className="text-muted-foreground">Current period</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-0.5 bg-muted-foreground/50 rounded" style={{ borderStyle: 'dashed' }} />
+                  <span className="text-muted-foreground">Previous period</span>
+                </div>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
@@ -588,6 +617,10 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="hsl(var(--lavender-deep))" stopOpacity={0.3} />
                       <stop offset="95%" stopColor="hsl(var(--lavender-deep))" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorPreviousRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
@@ -607,8 +640,22 @@ const AdminDashboard = ({ isAdmin }: AdminDashboardProps) => {
                       border: "1px solid hsl(var(--border))",
                       borderRadius: "8px",
                     }}
-                    formatter={(value: number) => [`$${value.toFixed(2)}`, "Revenue"]}
+                    formatter={(value: number, name: string) => [
+                      `$${value.toFixed(2)}`,
+                      name === "revenue" ? "Current" : "Previous"
+                    ]}
                   />
+                  {showComparison && (
+                    <Area
+                      type="monotone"
+                      dataKey="previousRevenue"
+                      stroke="hsl(var(--muted-foreground))"
+                      strokeDasharray="5 5"
+                      fillOpacity={1}
+                      fill="url(#colorPreviousRevenue)"
+                      strokeWidth={1.5}
+                    />
+                  )}
                   <Area
                     type="monotone"
                     dataKey="revenue"
