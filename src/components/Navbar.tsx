@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Menu, Search, User, Heart, LogOut } from "lucide-react";
+import { ShoppingBag, Menu, Search, User, Heart, LogOut, Package } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
@@ -129,6 +129,12 @@ const Navbar = () => {
                       <Link to="/wishlist" className="cursor-pointer">
                         <Heart className="w-4 h-4 mr-2" />
                         Wishlist
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/orders" className="cursor-pointer">
+                        <Package className="w-4 h-4 mr-2" />
+                        Orders
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
