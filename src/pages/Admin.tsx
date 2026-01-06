@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -9,7 +9,7 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { products } from "@/data/products";
 import { toast } from "sonner";
-import { Loader2, Package, Save, AlertTriangle, ShieldAlert } from "lucide-react";
+import { Loader2, Package, Save, AlertTriangle, ShieldAlert, Plus, PackagePlus } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -20,6 +20,11 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface InventoryItem {
   id: string;
@@ -34,6 +39,14 @@ interface InventoryEdit {
   low_stock_threshold: number;
 }
 
+interface MissingVariant {
+  productId: string;
+  productName: string;
+  variantId: string;
+  variantName: string;
+  variantColor?: string;
+}
+
 const Admin = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
@@ -41,7 +54,9 @@ const Admin = () => {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+  const [creating, setCreating] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, InventoryEdit>>({});
+  const [showMissing, setShowMissing] = useState(true);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -76,6 +91,30 @@ const Admin = () => {
     }
   }, [isAdmin]);
 
+  // Find variants that don't have inventory records
+  const missingVariants = useMemo((): MissingVariant[] => {
+    const inventoryKeys = new Set(
+      inventory.map((i) => `${i.product_id}-${i.variant_id}`)
+    );
+    
+    const missing: MissingVariant[] = [];
+    products.forEach((product) => {
+      product.variants.forEach((variant) => {
+        const key = `${product.id}-${variant.id}`;
+        if (!inventoryKeys.has(key)) {
+          missing.push({
+            productId: product.id,
+            productName: product.name,
+            variantId: variant.id,
+            variantName: variant.name,
+            variantColor: variant.color,
+          });
+        }
+      });
+    });
+    return missing;
+  }, [inventory]);
+
   const getProductName = (productId: string) => {
     const product = products.find((p) => p.id === productId);
     return product?.name || `Product ${productId}`;
@@ -85,6 +124,56 @@ const Admin = () => {
     const product = products.find((p) => p.id === productId);
     const variant = product?.variants.find((v) => v.id === variantId);
     return variant?.name || variantId;
+  };
+
+  const handleCreateInventory = async (variant: MissingVariant) => {
+    const key = `${variant.productId}-${variant.variantId}`;
+    setCreating(key);
+
+    const { data, error } = await supabase
+      .from("inventory")
+      .insert({
+        product_id: variant.productId,
+        variant_id: variant.variantId,
+        stock_quantity: 0,
+        low_stock_threshold: 5,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast.error("Failed to create inventory record");
+    } else {
+      toast.success(`Inventory created for ${variant.productName} - ${variant.variantName}`);
+      setInventory((prev) => [...prev, data]);
+    }
+
+    setCreating(null);
+  };
+
+  const handleCreateAllMissing = async () => {
+    setCreating("all");
+
+    const inserts = missingVariants.map((v) => ({
+      product_id: v.productId,
+      variant_id: v.variantId,
+      stock_quantity: 0,
+      low_stock_threshold: 5,
+    }));
+
+    const { data, error } = await supabase
+      .from("inventory")
+      .insert(inserts)
+      .select();
+
+    if (error) {
+      toast.error("Failed to create inventory records");
+    } else {
+      toast.success(`Created ${data.length} inventory records`);
+      setInventory((prev) => [...prev, ...data]);
+    }
+
+    setCreating(null);
   };
 
   const handleEdit = (itemId: string, field: keyof InventoryEdit, value: number) => {
@@ -198,6 +287,86 @@ const Admin = () => {
               Manage stock levels and low stock thresholds for all products.
             </p>
           </div>
+
+          {/* Missing Variants Section */}
+          {missingVariants.length > 0 && (
+            <Collapsible open={showMissing} onOpenChange={setShowMissing} className="mb-8">
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800 overflow-hidden">
+                <CollapsibleTrigger asChild>
+                  <button className="w-full flex items-center justify-between p-4 hover:bg-amber-100/50 dark:hover:bg-amber-900/20 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <PackagePlus className="w-5 h-5 text-amber-600" />
+                      <span className="font-medium text-amber-800 dark:text-amber-200">
+                        {missingVariants.length} variant{missingVariants.length !== 1 ? "s" : ""} without inventory tracking
+                      </span>
+                    </div>
+                    <span className="text-sm text-amber-600">
+                      {showMissing ? "Hide" : "Show"}
+                    </span>
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="border-t border-amber-200 dark:border-amber-800 p-4">
+                    <div className="flex justify-end mb-4">
+                      <Button
+                        variant="soft"
+                        size="sm"
+                        onClick={handleCreateAllMissing}
+                        disabled={creating === "all"}
+                      >
+                        {creating === "all" ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Plus className="w-4 h-4" />
+                        )}
+                        Create All ({missingVariants.length})
+                      </Button>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {missingVariants.map((variant) => {
+                        const key = `${variant.productId}-${variant.variantId}`;
+                        return (
+                          <div
+                            key={key}
+                            className="flex items-center justify-between p-3 rounded-xl bg-background border border-border"
+                          >
+                            <div className="flex items-center gap-3">
+                              {variant.variantColor && (
+                                <div
+                                  className="w-6 h-6 rounded-full border border-border"
+                                  style={{ backgroundColor: variant.variantColor }}
+                                />
+                              )}
+                              <div>
+                                <p className="font-medium text-foreground text-sm">
+                                  {variant.productName}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {variant.variantName}
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleCreateInventory(variant)}
+                              disabled={creating === key}
+                            >
+                              {creating === key ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Plus className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </div>
+            </Collapsible>
+          )}
 
           {/* Inventory Table */}
           <div className="rounded-2xl border border-border bg-card overflow-hidden">
