@@ -16,6 +16,7 @@ interface Review {
   helpful_count: number;
   created_at: string;
   user_id: string;
+  images: string[] | null;
 }
 
 interface ProductReviewsProps {
@@ -95,6 +96,23 @@ const ReviewCard = ({ review }: { review: Review }) => {
 
       <h4 className="font-medium text-foreground mb-2">{review.title}</h4>
       <p className="text-muted-foreground text-sm leading-relaxed mb-4">{review.content}</p>
+
+      {/* Review Images */}
+      {review.images && review.images.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {review.images.map((image, index) => (
+            <a
+              key={index}
+              href={image}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-20 h-20 rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
+            >
+              <img src={image} alt={`Review image ${index + 1}`} className="w-full h-full object-cover" />
+            </a>
+          ))}
+        </div>
+      )}
 
       <button
         onClick={handleHelpful}

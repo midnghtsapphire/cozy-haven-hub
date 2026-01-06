@@ -161,6 +161,7 @@ export type Database = {
           created_at: string
           helpful_count: number
           id: string
+          images: string[] | null
           product_id: string
           rating: number
           title: string
@@ -173,6 +174,7 @@ export type Database = {
           created_at?: string
           helpful_count?: number
           id?: string
+          images?: string[] | null
           product_id: string
           rating: number
           title: string
@@ -185,6 +187,7 @@ export type Database = {
           created_at?: string
           helpful_count?: number
           id?: string
+          images?: string[] | null
           product_id?: string
           rating?: number
           title?: string
