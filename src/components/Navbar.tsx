@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Menu, Search, User } from "lucide-react";
+import { ShoppingBag, Menu, Search, User, Heart } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
+import { useWishlist } from "@/contexts/WishlistContext";
 import { cn } from "@/lib/utils";
 import SearchDialog from "@/components/SearchDialog";
 
@@ -10,6 +11,7 @@ const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const { itemCount, setIsOpen } = useCart();
+  const { itemCount: wishlistCount } = useWishlist();
   const location = useLocation();
 
   const isActive = (path: string) => location.pathname === path;
@@ -76,6 +78,20 @@ const Navbar = () => {
                   ⌘K
                 </span>
               </button>
+              <Link 
+                to="/wishlist"
+                className={cn(
+                  "hidden md:flex w-10 h-10 rounded-full items-center justify-center hover:bg-secondary transition-colors relative",
+                  isActive("/wishlist") && "bg-secondary"
+                )}
+              >
+                <Heart className={cn("w-5 h-5", wishlistCount > 0 ? "fill-lavender-deep text-lavender-deep" : "text-foreground")} />
+                {wishlistCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-lavender-deep text-white text-[10px] flex items-center justify-center">
+                    {wishlistCount}
+                  </span>
+                )}
+              </Link>
               <button className="hidden md:flex w-10 h-10 rounded-full items-center justify-center hover:bg-secondary transition-colors">
                 <User className="w-5 h-5 text-foreground" />
               </button>
@@ -136,6 +152,17 @@ const Navbar = () => {
                   className="text-sm text-lavender-deep font-medium hover:text-foreground transition-colors py-2"
                 >
                   ✨ Sanctuary Quiz
+                </Link>
+                <Link 
+                  to="/wishlist" 
+                  onClick={() => setIsMenuOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 text-sm transition-colors py-2",
+                    isActive("/wishlist") ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Heart className={cn("w-4 h-4", wishlistCount > 0 && "fill-lavender-deep text-lavender-deep")} />
+                  Wishlist {wishlistCount > 0 && `(${wishlistCount})`}
                 </Link>
                 <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors py-2">
                   About

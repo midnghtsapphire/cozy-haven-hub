@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { Check, Heart, Minus, Plus, ShoppingBag, Sparkles, Truck } from "lucide-react";
 import type { Product } from "@/data/products";
 import { useCart } from "@/contexts/CartContext";
+import { useWishlist } from "@/contexts/WishlistContext";
 import { toast } from "sonner";
 
 interface ProductInfoProps {
@@ -13,8 +14,9 @@ interface ProductInfoProps {
 const ProductInfo = ({ product }: ProductInfoProps) => {
   const [selectedVariant, setSelectedVariant] = useState(product.variants[0]);
   const [quantity, setQuantity] = useState(1);
-  const [isWishlisted, setIsWishlisted] = useState(false);
   const { addItem } = useCart();
+  const { isInWishlist, toggleItem } = useWishlist();
+  const isWishlisted = isInWishlist(product.id);
 
   const handleQuantityChange = (delta: number) => {
     setQuantity((prev) => Math.max(1, Math.min(10, prev + delta)));
@@ -152,10 +154,13 @@ const ProductInfo = ({ product }: ProductInfoProps) => {
         <Button
           variant="glow"
           size="xl"
-          onClick={() => setIsWishlisted(!isWishlisted)}
+          onClick={() => {
+            toggleItem(product);
+            toast.success(isWishlisted ? `${product.name} removed from wishlist` : `${product.name} added to wishlist`);
+          }}
           className="px-4"
         >
-          <Heart className={cn("w-5 h-5", isWishlisted && "fill-current text-blush")} />
+          <Heart className={cn("w-5 h-5", isWishlisted && "fill-lavender-deep text-lavender-deep")} />
         </Button>
       </div>
 
