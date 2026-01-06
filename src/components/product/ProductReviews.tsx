@@ -1,11 +1,23 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Star, ThumbsUp, CheckCircle } from "lucide-react";
+import { Star, ThumbsUp, CheckCircle, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import ReviewForm from "./ReviewForm";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface Review {
   id: string;
@@ -40,9 +52,17 @@ const RatingBar = ({ stars, count, total }: { stars: number; count: number; tota
   );
 };
 
-const ReviewCard = ({ review }: { review: Review }) => {
+interface ReviewCardProps {
+  review: Review;
+  isOwner: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+const ReviewCard = ({ review, isOwner, onEdit, onDelete }: ReviewCardProps) => {
   const [helpful, setHelpful] = useState(false);
   const [helpfulCount, setHelpfulCount] = useState(review.helpful_count);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleHelpful = async () => {
     if (helpful) return;
@@ -54,6 +74,21 @@ const ReviewCard = ({ review }: { review: Review }) => {
       .from("reviews")
       .update({ helpful_count: helpfulCount + 1 })
       .eq("id", review.id);
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase.from("reviews").delete().eq("id", review.id);
+      if (error) throw error;
+      toast.success("Review deleted");
+      onDelete();
+    } catch (error) {
+      console.error("Error deleting review:", error);
+      toast.error("Failed to delete review");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -92,6 +127,42 @@ const ReviewCard = ({ review }: { review: Review }) => {
             <span className="text-sm text-muted-foreground">{formatDate(review.created_at)}</span>
           </div>
         </div>
+
+        {isOwner && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onEdit}
+              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              title="Edit review"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button
+                  className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  title="Delete review"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete review?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. Your review will be permanently deleted.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
+                    {isDeleting ? "Deleting..." : "Delete"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        )}
       </div>
 
       <h4 className="font-medium text-foreground mb-2">{review.title}</h4>
@@ -134,6 +205,7 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingReview, setEditingReview] = useState<Review | null>(null);
   const [displayCount, setDisplayCount] = useState(5);
 
   const fetchReviews = async () => {
@@ -167,6 +239,21 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
 
   const userHasReviewed = user && reviews.some((r) => r.user_id === user.id);
   const displayedReviews = reviews.slice(0, displayCount);
+
+  const handleEditClick = (review: Review) => {
+    setEditingReview(review);
+    setShowForm(false);
+  };
+
+  const handleFormClose = () => {
+    setShowForm(false);
+    setEditingReview(null);
+  };
+
+  const handleFormSuccess = () => {
+    fetchReviews();
+    setEditingReview(null);
+  };
 
   return (
     <section className="py-16 border-t border-border">
@@ -212,7 +299,7 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
             </div>
 
             {user ? (
-              !userHasReviewed && (
+              !userHasReviewed && !editingReview && (
                 <Button variant="soft" className="w-full" onClick={() => setShowForm(true)}>
                   Write a Review
                 </Button>
@@ -227,11 +314,12 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
 
         {/* Reviews List */}
         <div className="lg:col-span-2 space-y-4">
-          {showForm && (
+          {(showForm || editingReview) && (
             <ReviewForm
               productId={productId}
-              onClose={() => setShowForm(false)}
-              onSuccess={fetchReviews}
+              existingReview={editingReview}
+              onClose={handleFormClose}
+              onSuccess={handleFormSuccess}
             />
           )}
 
@@ -244,7 +332,13 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
           ) : (
             <>
               {displayedReviews.map((review) => (
-                <ReviewCard key={review.id} review={review} />
+                <ReviewCard
+                  key={review.id}
+                  review={review}
+                  isOwner={user?.id === review.user_id}
+                  onEdit={() => handleEditClick(review)}
+                  onDelete={fetchReviews}
+                />
               ))}
 
               {displayCount < reviews.length && (
