@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,23 +16,44 @@ const reviewSchema = z.object({
   rating: z.number().min(1, "Please select a rating").max(5),
 });
 
+interface ExistingReview {
+  id: string;
+  rating: number;
+  title: string;
+  content: string;
+  images: string[] | null;
+}
+
 interface ReviewFormProps {
   productId: string;
+  existingReview?: ExistingReview | null;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-const ReviewForm = ({ productId, onClose, onSuccess }: ReviewFormProps) => {
+const ReviewForm = ({ productId, existingReview, onClose, onSuccess }: ReviewFormProps) => {
   const { user } = useAuth();
-  const [rating, setRating] = useState(0);
+  const [rating, setRating] = useState(existingReview?.rating || 0);
   const [hoveredRating, setHoveredRating] = useState(0);
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [images, setImages] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [title, setTitle] = useState(existingReview?.title || "");
+  const [content, setContent] = useState(existingReview?.content || "");
+  const [existingImages, setExistingImages] = useState<string[]>(existingReview?.images || []);
+  const [newImages, setNewImages] = useState<File[]>([]);
+  const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const isEditing = !!existingReview;
+
+  useEffect(() => {
+    if (existingReview) {
+      setRating(existingReview.rating);
+      setTitle(existingReview.title);
+      setContent(existingReview.content);
+      setExistingImages(existingReview.images || []);
+    }
+  }, [existingReview]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -48,35 +69,40 @@ const ReviewForm = ({ productId, onClose, onSuccess }: ReviewFormProps) => {
       return true;
     });
 
-    if (images.length + validFiles.length > 4) {
+    const totalImages = existingImages.length + newImages.length + validFiles.length;
+    if (totalImages > 4) {
       toast.error("Maximum 4 images allowed");
       return;
     }
 
-    setImages((prev) => [...prev, ...validFiles]);
+    setNewImages((prev) => [...prev, ...validFiles]);
     
     validFiles.forEach((file) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreviews((prev) => [...prev, reader.result as string]);
+        setNewImagePreviews((prev) => [...prev, reader.result as string]);
       };
       reader.readAsDataURL(file);
     });
   };
 
-  const removeImage = (index: number) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
-    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  const removeExistingImage = (index: number) => {
+    setExistingImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeNewImage = (index: number) => {
+    setNewImages((prev) => prev.filter((_, i) => i !== index));
+    setNewImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const uploadImages = async (): Promise<string[]> => {
-    if (!user || images.length === 0) return [];
+    if (!user || newImages.length === 0) return [];
 
     setIsUploading(true);
     const uploadedUrls: string[] = [];
 
     try {
-      for (const image of images) {
+      for (const image of newImages) {
         const fileExt = image.name.split(".").pop();
         const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
@@ -123,21 +149,37 @@ const ReviewForm = ({ productId, onClose, onSuccess }: ReviewFormProps) => {
     setIsSubmitting(true);
 
     try {
-      const imageUrls = await uploadImages();
+      const newImageUrls = await uploadImages();
+      const allImages = [...existingImages, ...newImageUrls];
 
-      const { error } = await supabase.from("reviews").insert({
-        product_id: productId,
-        user_id: user.id,
-        rating,
-        title: title.trim(),
-        content: content.trim(),
-        author_name: user.user_metadata?.display_name || user.email?.split("@")[0] || "Anonymous",
-        images: imageUrls,
-      });
+      if (isEditing) {
+        const { error } = await supabase
+          .from("reviews")
+          .update({
+            rating,
+            title: title.trim(),
+            content: content.trim(),
+            images: allImages,
+          })
+          .eq("id", existingReview.id);
 
-      if (error) throw error;
+        if (error) throw error;
+        toast.success("Review updated successfully!");
+      } else {
+        const { error } = await supabase.from("reviews").insert({
+          product_id: productId,
+          user_id: user.id,
+          rating,
+          title: title.trim(),
+          content: content.trim(),
+          author_name: user.user_metadata?.display_name || user.email?.split("@")[0] || "Anonymous",
+          images: allImages,
+        });
 
-      toast.success("Review submitted successfully!");
+        if (error) throw error;
+        toast.success("Review submitted successfully!");
+      }
+
       onSuccess();
       onClose();
     } catch (error) {
@@ -148,10 +190,14 @@ const ReviewForm = ({ productId, onClose, onSuccess }: ReviewFormProps) => {
     }
   };
 
+  const totalImages = existingImages.length + newImages.length;
+
   return (
     <div className="p-6 rounded-2xl bg-card border border-border">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-xl font-serif font-medium text-foreground">Write a Review</h3>
+        <h3 className="text-xl font-serif font-medium text-foreground">
+          {isEditing ? "Edit Review" : "Write a Review"}
+        </h3>
         <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
           <X className="w-5 h-5" />
         </button>
@@ -215,21 +261,35 @@ const ReviewForm = ({ productId, onClose, onSuccess }: ReviewFormProps) => {
 
         {/* Images */}
         <div className="space-y-2">
-          <Label>Add Photos (optional)</Label>
+          <Label>Photos (optional)</Label>
           <div className="flex flex-wrap gap-3">
-            {imagePreviews.map((preview, index) => (
-              <div key={index} className="relative w-20 h-20 rounded-lg overflow-hidden group">
-                <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+            {/* Existing images */}
+            {existingImages.map((url, index) => (
+              <div key={`existing-${index}`} className="relative w-20 h-20 rounded-lg overflow-hidden group">
+                <img src={url} alt="Review" className="w-full h-full object-cover" />
                 <button
                   type="button"
-                  onClick={() => removeImage(index)}
+                  onClick={() => removeExistingImage(index)}
                   className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <X className="w-5 h-5 text-white" />
                 </button>
               </div>
             ))}
-            {images.length < 4 && (
+            {/* New image previews */}
+            {newImagePreviews.map((preview, index) => (
+              <div key={`new-${index}`} className="relative w-20 h-20 rounded-lg overflow-hidden group">
+                <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removeNewImage(index)}
+                  className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              </div>
+            ))}
+            {totalImages < 4 && (
               <label className="w-20 h-20 rounded-lg border-2 border-dashed border-border flex items-center justify-center cursor-pointer hover:border-lavender-deep hover:bg-secondary/50 transition-colors">
                 <ImagePlus className="w-6 h-6 text-muted-foreground" />
                 <input
@@ -249,8 +309,10 @@ const ReviewForm = ({ productId, onClose, onSuccess }: ReviewFormProps) => {
           {isSubmitting || isUploading ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              {isUploading ? "Uploading images..." : "Submitting..."}
+              {isUploading ? "Uploading images..." : "Saving..."}
             </>
+          ) : isEditing ? (
+            "Update Review"
           ) : (
             "Submit Review"
           )}
