@@ -22,8 +22,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Pencil, Trash2, X, ImageIcon } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, X, ImageIcon, Palette } from "lucide-react";
 import { toast } from "sonner";
+import { Separator } from "@/components/ui/separator";
 
 interface ProductVariant {
   id: string;
@@ -62,6 +63,15 @@ interface ProductFormData {
   is_active: boolean;
 }
 
+interface VariantFormData {
+  id?: string;
+  name: string;
+  color: string;
+  in_stock: boolean;
+  isNew?: boolean;
+  isDeleted?: boolean;
+}
+
 const emptyFormData: ProductFormData = {
   name: "",
   description: "",
@@ -82,6 +92,7 @@ const AdminProductManagement = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState<ProductFormData>(emptyFormData);
+  const [variants, setVariants] = useState<VariantFormData[]>([]);
 
   useEffect(() => {
     fetchProducts();
@@ -105,6 +116,7 @@ const AdminProductManagement = () => {
   const openCreateDialog = () => {
     setEditingProduct(null);
     setFormData(emptyFormData);
+    setVariants([]);
     setDialogOpen(true);
   };
 
@@ -122,6 +134,15 @@ const AdminProductManagement = () => {
       features: product.features.length > 0 ? product.features : [""],
       is_active: product.is_active,
     });
+    // Load existing variants
+    setVariants(
+      (product.product_variants || []).map((v) => ({
+        id: v.id,
+        name: v.name,
+        color: v.color || "",
+        in_stock: v.in_stock,
+      }))
+    );
     setDialogOpen(true);
   };
 
@@ -146,31 +167,73 @@ const AdminProductManagement = () => {
       is_active: formData.is_active,
     };
 
-    if (editingProduct) {
-      const { error } = await supabase
-        .from("products")
-        .update(productData)
-        .eq("id", editingProduct.id);
+    try {
+      let productId = editingProduct?.id;
 
-      if (error) {
-        toast.error("Failed to update product");
-        console.error(error);
-      } else {
-        toast.success("Product updated successfully");
-        setDialogOpen(false);
-        fetchProducts();
-      }
-    } else {
-      const { error } = await supabase.from("products").insert(productData);
+      if (editingProduct) {
+        const { error } = await supabase
+          .from("products")
+          .update(productData)
+          .eq("id", editingProduct.id);
 
-      if (error) {
-        toast.error("Failed to create product");
-        console.error(error);
+        if (error) throw error;
       } else {
-        toast.success("Product created successfully");
-        setDialogOpen(false);
-        fetchProducts();
+        const { data, error } = await supabase
+          .from("products")
+          .insert(productData)
+          .select()
+          .single();
+
+        if (error) throw error;
+        productId = data.id;
       }
+
+      // Handle variant changes
+      if (productId) {
+        // Delete variants marked for deletion
+        const toDelete = variants.filter((v) => v.isDeleted && v.id);
+        if (toDelete.length > 0) {
+          const { error } = await supabase
+            .from("product_variants")
+            .delete()
+            .in("id", toDelete.map((v) => v.id!));
+          if (error) console.error("Failed to delete variants:", error);
+        }
+
+        // Update existing variants
+        const toUpdate = variants.filter((v) => !v.isNew && !v.isDeleted && v.id);
+        for (const variant of toUpdate) {
+          await supabase
+            .from("product_variants")
+            .update({
+              name: variant.name,
+              color: variant.color || null,
+              in_stock: variant.in_stock,
+            })
+            .eq("id", variant.id!);
+        }
+
+        // Insert new variants
+        const toInsert = variants.filter((v) => v.isNew && !v.isDeleted && v.name.trim());
+        if (toInsert.length > 0) {
+          const { error } = await supabase.from("product_variants").insert(
+            toInsert.map((v) => ({
+              product_id: productId,
+              name: v.name,
+              color: v.color || null,
+              in_stock: v.in_stock,
+            }))
+          );
+          if (error) console.error("Failed to insert variants:", error);
+        }
+      }
+
+      toast.success(editingProduct ? "Product updated successfully" : "Product created successfully");
+      setDialogOpen(false);
+      fetchProducts();
+    } catch (error) {
+      console.error(error);
+      toast.error(editingProduct ? "Failed to update product" : "Failed to create product");
     }
 
     setSaving(false);
@@ -223,6 +286,35 @@ const AdminProductManagement = () => {
       [field]: prev[field].map((item, i) => (i === index ? value : item)),
     }));
   };
+
+  // Variant management functions
+  const addVariant = () => {
+    setVariants((prev) => [
+      ...prev,
+      { name: "", color: "", in_stock: true, isNew: true },
+    ]);
+  };
+
+  const removeVariant = (index: number) => {
+    setVariants((prev) => {
+      const variant = prev[index];
+      if (variant.id) {
+        // Mark existing variant for deletion
+        return prev.map((v, i) => (i === index ? { ...v, isDeleted: true } : v));
+      } else {
+        // Remove new variant from list
+        return prev.filter((_, i) => i !== index);
+      }
+    });
+  };
+
+  const updateVariant = (index: number, field: keyof VariantFormData, value: string | boolean) => {
+    setVariants((prev) =>
+      prev.map((v, i) => (i === index ? { ...v, [field]: value } : v))
+    );
+  };
+
+  const activeVariants = variants.filter((v) => !v.isDeleted);
 
   if (loading) {
     return (
@@ -381,6 +473,89 @@ const AdminProductManagement = () => {
                   </div>
                 ))}
               </div>
+
+              <Separator />
+
+              {/* Variants Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Palette className="w-4 h-4 text-muted-foreground" />
+                    <Label className="text-base font-medium">Variants</Label>
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" onClick={addVariant}>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Variant
+                  </Button>
+                </div>
+                
+                {activeVariants.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2">
+                    No variants yet. Add variants for different colors or options.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {variants.map((variant, index) => {
+                      if (variant.isDeleted) return null;
+                      return (
+                        <div
+                          key={variant.id || `new-${index}`}
+                          className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30 border border-border"
+                        >
+                          <div className="flex-1 grid gap-3 sm:grid-cols-3">
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Name *</Label>
+                              <Input
+                                value={variant.name}
+                                onChange={(e) => updateVariant(index, "name", e.target.value)}
+                                placeholder="e.g., Warm Cream"
+                                className="h-9"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Color (hex)</Label>
+                              <div className="flex gap-2">
+                                <Input
+                                  value={variant.color}
+                                  onChange={(e) => updateVariant(index, "color", e.target.value)}
+                                  placeholder="#F5F0E8"
+                                  className="h-9"
+                                />
+                                {variant.color && (
+                                  <div
+                                    className="w-9 h-9 rounded-lg border border-border shrink-0"
+                                    style={{ backgroundColor: variant.color }}
+                                  />
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-end gap-3">
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  checked={variant.in_stock}
+                                  onCheckedChange={(checked) => updateVariant(index, "in_stock", checked)}
+                                />
+                                <Label className="text-sm">In Stock</Label>
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive shrink-0"
+                            onClick={() => removeVariant(index)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <Separator />
 
               <div className="flex items-center gap-3">
                 <Switch
