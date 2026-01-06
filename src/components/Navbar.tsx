@@ -1,18 +1,33 @@
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Menu, Search, User, Heart } from "lucide-react";
+import { ShoppingBag, Menu, Search, User, Heart, LogOut } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import SearchDialog from "@/components/SearchDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const { itemCount, setIsOpen } = useCart();
   const { itemCount: wishlistCount } = useWishlist();
+  const { user, signOut } = useAuth();
   const location = useLocation();
+
+  const handleSignOut = async () => {
+    await signOut();
+    toast.success("Signed out successfully");
+  };
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -92,9 +107,39 @@ const Navbar = () => {
                   </span>
                 )}
               </Link>
-              <button className="hidden md:flex w-10 h-10 rounded-full items-center justify-center hover:bg-secondary transition-colors">
-                <User className="w-5 h-5 text-foreground" />
-              </button>
+              {user ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="hidden md:flex w-10 h-10 rounded-full items-center justify-center hover:bg-secondary transition-colors bg-lavender-mist">
+                      <User className="w-5 h-5 text-lavender-deep" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem disabled className="text-xs text-muted-foreground">
+                      {user.email}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to="/wishlist" className="cursor-pointer">
+                        <Heart className="w-4 h-4 mr-2" />
+                        Wishlist
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive">
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Sign Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Link 
+                  to="/auth"
+                  className="hidden md:flex w-10 h-10 rounded-full items-center justify-center hover:bg-secondary transition-colors"
+                >
+                  <User className="w-5 h-5 text-foreground" />
+                </Link>
+              )}
               <Button 
                 variant="soft" 
                 size="sm" 
@@ -164,9 +209,27 @@ const Navbar = () => {
                   <Heart className={cn("w-4 h-4", wishlistCount > 0 && "fill-lavender-deep text-lavender-deep")} />
                   Wishlist {wishlistCount > 0 && `(${wishlistCount})`}
                 </Link>
-                <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors py-2">
-                  About
-                </a>
+                {user ? (
+                  <button
+                    onClick={() => {
+                      handleSignOut();
+                      setIsMenuOpen(false);
+                    }}
+                    className="flex items-center gap-3 text-sm text-destructive hover:text-destructive/80 transition-colors py-2"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </button>
+                ) : (
+                  <Link 
+                    to="/auth" 
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center gap-3 text-sm text-lavender-deep font-medium hover:text-foreground transition-colors py-2"
+                  >
+                    <User className="w-4 h-4" />
+                    Sign In
+                  </Link>
+                )}
               </div>
             </div>
           )}
