@@ -9,7 +9,7 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { products } from "@/data/products";
 import { toast } from "sonner";
-import { Loader2, Package, Save, AlertTriangle, ShieldAlert, Plus, PackagePlus } from "lucide-react";
+import { Loader2, Package, Save, AlertTriangle, ShieldAlert, Plus, PackagePlus, ClipboardList } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -25,6 +25,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import AdminOrderManagement from "@/components/admin/AdminOrderManagement";
 
 interface InventoryItem {
   id: string;
@@ -280,13 +282,28 @@ const Admin = () => {
                 <Package className="w-5 h-5 text-lavender-deep" />
               </div>
               <h1 className="text-3xl font-serif font-medium text-foreground">
-                Inventory Management
+                Admin Panel
               </h1>
             </div>
             <p className="text-muted-foreground">
-              Manage stock levels and low stock thresholds for all products.
+              Manage inventory, orders, and more.
             </p>
           </div>
+
+          {/* Tabs */}
+          <Tabs defaultValue="inventory" className="space-y-6">
+            <TabsList className="bg-secondary/50">
+              <TabsTrigger value="inventory" className="gap-2">
+                <Package className="w-4 h-4" />
+                Inventory
+              </TabsTrigger>
+              <TabsTrigger value="orders" className="gap-2">
+                <ClipboardList className="w-4 h-4" />
+                Orders
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="inventory" className="space-y-6">
 
           {/* Missing Variants Section */}
           {missingVariants.length > 0 && (
@@ -477,6 +494,14 @@ const Admin = () => {
               </Table>
             )}
           </div>
+            </TabsContent>
+
+            <TabsContent value="orders">
+              <div className="rounded-2xl border border-border bg-card overflow-hidden">
+                <AdminOrderManagement isAdmin={isAdmin} />
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
 
