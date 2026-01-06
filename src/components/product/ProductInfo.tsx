@@ -5,6 +5,8 @@ import { Check, Heart, Minus, Plus, ShoppingBag, Sparkles, Truck } from "lucide-
 import type { Product } from "@/data/products";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
+import { useProductInventory } from "@/hooks/useInventory";
+import StockIndicator from "@/components/StockIndicator";
 import { toast } from "sonner";
 
 interface ProductInfoProps {
@@ -17,6 +19,11 @@ const ProductInfo = ({ product }: ProductInfoProps) => {
   const { addItem } = useCart();
   const { isInWishlist, toggleItem } = useWishlist();
   const isWishlisted = isInWishlist(product.id);
+  const { getVariantStockStatus, getVariantStock } = useProductInventory(product.id);
+  
+  const stockStatus = getVariantStockStatus(selectedVariant.id);
+  const stockInfo = getVariantStock(selectedVariant.id);
+  const isOutOfStock = stockStatus === "out_of_stock";
 
   const handleQuantityChange = (delta: number) => {
     setQuantity((prev) => Math.max(1, Math.min(10, prev + delta)));
@@ -86,6 +93,13 @@ const ProductInfo = ({ product }: ProductInfoProps) => {
         {product.longDescription}
       </p>
 
+      {/* Stock Status */}
+      <StockIndicator 
+        status={stockStatus} 
+        quantity={stockInfo?.stock_quantity} 
+        showQuantity={stockStatus === "low_stock"}
+      />
+
       {/* Variant Selector */}
       <div>
         <label className="block text-sm font-medium text-foreground mb-3">
@@ -147,9 +161,15 @@ const ProductInfo = ({ product }: ProductInfoProps) => {
 
       {/* Actions */}
       <div className="flex gap-4">
-        <Button variant="hero" size="xl" className="flex-1" onClick={handleAddToCart}>
+        <Button 
+          variant="hero" 
+          size="xl" 
+          className="flex-1" 
+          onClick={handleAddToCart}
+          disabled={isOutOfStock}
+        >
           <ShoppingBag className="w-5 h-5" />
-          Add to Cart — ${product.price * quantity}
+          {isOutOfStock ? "Out of Stock" : `Add to Cart — $${product.price * quantity}`}
         </Button>
         <Button
           variant="glow"

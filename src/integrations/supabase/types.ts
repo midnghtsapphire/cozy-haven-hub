@@ -44,6 +44,36 @@ export type Database = {
         }
         Relationships: []
       }
+      inventory: {
+        Row: {
+          created_at: string
+          id: string
+          low_stock_threshold: number
+          product_id: string
+          stock_quantity: number
+          updated_at: string
+          variant_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          low_stock_threshold?: number
+          product_id: string
+          stock_quantity?: number
+          updated_at?: string
+          variant_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          low_stock_threshold?: number
+          product_id?: string
+          stock_quantity?: number
+          updated_at?: string
+          variant_id?: string
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           created_at: string
