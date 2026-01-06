@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, Menu, Search, User } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -10,9 +11,9 @@ const Navbar = () => {
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <a href="/" className="font-serif text-2xl font-medium text-foreground">
+          <Link to="/" className="font-serif text-2xl font-medium text-foreground">
             duskglow
-          </a>
+          </Link>
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-8">
@@ -22,9 +23,9 @@ const Navbar = () => {
             <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Collections
             </a>
-            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Sanctuary Quiz
-            </a>
+            <Link to="/quiz" className="text-sm text-lavender-deep font-medium hover:text-foreground transition-colors">
+              ✨ Sanctuary Quiz
+            </Link>
             <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               About
             </a>
@@ -66,9 +67,9 @@ const Navbar = () => {
               <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors py-2">
                 Collections
               </a>
-              <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors py-2">
-                Sanctuary Quiz
-              </a>
+              <Link to="/quiz" className="text-sm text-lavender-deep font-medium hover:text-foreground transition-colors py-2">
+                ✨ Sanctuary Quiz
+              </Link>
               <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors py-2">
                 About
               </a>

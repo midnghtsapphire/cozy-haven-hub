@@ -1,6 +1,7 @@
 import heroImage from "@/assets/hero-desk.jpg";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const HeroSection = () => {
   return (
@@ -35,8 +36,10 @@ const HeroSection = () => {
                 Shop the Collection
                 <ArrowRight className="w-5 h-5" />
               </Button>
-              <Button variant="glow" size="xl">
-                Take the Quiz
+              <Button variant="glow" size="xl" asChild>
+                <Link to="/quiz">
+                  Take the Quiz
+                </Link>
               </Button>
             </div>
 
