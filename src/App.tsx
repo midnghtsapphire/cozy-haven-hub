@@ -15,6 +15,7 @@ import SearchResults from "./pages/SearchResults";
 import Wishlist from "./pages/Wishlist";
 import Auth from "./pages/Auth";
 import Profile from "./pages/Profile";
+import OrderHistory from "./pages/OrderHistory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
                 <Route path="/wishlist" element={<Wishlist />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/orders" element={<OrderHistory />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
