@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Pencil, Trash2, X, ImageIcon, Palette } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, X, ImageIcon, Palette, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 
@@ -93,6 +93,8 @@ const AdminProductManagement = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState<ProductFormData>(emptyFormData);
   const [variants, setVariants] = useState<VariantFormData[]>([]);
+  const [uploading, setUploading] = useState<number | null>(null);
+  const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
     fetchProducts();
@@ -287,6 +289,48 @@ const AdminProductManagement = () => {
     }));
   };
 
+  const handleImageUpload = async (file: File, index: number) => {
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be less than 5MB");
+      return;
+    }
+
+    setUploading(index);
+
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `products/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("product-images")
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("product-images")
+        .getPublicUrl(filePath);
+
+      updateArrayItem("images", index, publicUrl);
+      toast.success("Image uploaded successfully");
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("Failed to upload image");
+    } finally {
+      setUploading(null);
+    }
+  };
+
   // Variant management functions
   const addVariant = () => {
     setVariants((prev) => [
@@ -418,28 +462,66 @@ const AdminProductManagement = () => {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>Image URLs</Label>
+                  <Label>Product Images</Label>
                   <Button type="button" variant="ghost" size="sm" onClick={() => addArrayItem("images")}>
                     <Plus className="w-4 h-4 mr-1" />
                     Add
                   </Button>
                 </div>
                 {formData.images.map((image, index) => (
-                  <div key={index} className="flex gap-2">
-                    <Input
-                      value={image}
-                      onChange={(e) => updateArrayItem("images", index, e.target.value)}
-                      placeholder="https://example.com/image.jpg"
-                    />
-                    {formData.images.length > 1 && (
+                  <div key={index} className="space-y-2">
+                    <div className="flex gap-2">
+                      <Input
+                        value={image}
+                        onChange={(e) => updateArrayItem("images", index, e.target.value)}
+                        placeholder="Paste URL or upload image"
+                        className="flex-1"
+                      />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        ref={(el) => (fileInputRefs.current[index] = el)}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleImageUpload(file, index);
+                        }}
+                      />
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="outline"
                         size="icon"
-                        onClick={() => removeArrayItem("images", index)}
+                        onClick={() => fileInputRefs.current[index]?.click()}
+                        disabled={uploading === index}
                       >
-                        <X className="w-4 h-4" />
+                        {uploading === index ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Upload className="w-4 h-4" />
+                        )}
                       </Button>
+                      {formData.images.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeArrayItem("images", index)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                    {image && (
+                      <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-border">
+                        <img
+                          src={image}
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      </div>
                     )}
                   </div>
                 ))}
