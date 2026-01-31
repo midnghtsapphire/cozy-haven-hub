@@ -110,6 +110,9 @@ const AdminProductManagement = () => {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [newCategoryDialogOpen, setNewCategoryDialogOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [savingCategory, setSavingCategory] = useState(false);
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
@@ -129,6 +132,41 @@ const AdminProductManagement = () => {
     } else {
       setCategories(data || []);
     }
+  };
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) {
+      toast.error("Please enter a category name");
+      return;
+    }
+
+    // Check if category already exists
+    const exists = categories.some(
+      (c) => c.name.toLowerCase() === newCategoryName.trim().toLowerCase()
+    );
+    if (exists) {
+      toast.error("Category already exists");
+      return;
+    }
+
+    setSavingCategory(true);
+    const { data, error } = await supabase
+      .from("categories")
+      .insert({ name: newCategoryName.trim(), is_active: true })
+      .select()
+      .single();
+
+    if (error) {
+      toast.error("Failed to create category");
+      console.error(error);
+    } else {
+      toast.success("Category created successfully");
+      await fetchCategories();
+      setFormData((prev) => ({ ...prev, category: data.name }));
+      setNewCategoryName("");
+      setNewCategoryDialogOpen(false);
+    }
+    setSavingCategory(false);
   };
 
   const fetchProducts = async () => {
@@ -458,7 +496,13 @@ const AdminProductManagement = () => {
                   <Label htmlFor="category">Category *</Label>
                   <Select
                     value={formData.category}
-                    onValueChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}
+                    onValueChange={(value) => {
+                      if (value === "__new_category__") {
+                        setNewCategoryDialogOpen(true);
+                      } else {
+                        setFormData((prev) => ({ ...prev, category: value }));
+                      }
+                    }}
                   >
                     <SelectTrigger id="category">
                       <SelectValue placeholder="Select category" />
@@ -469,8 +513,56 @@ const AdminProductManagement = () => {
                           {category.name}
                         </SelectItem>
                       ))}
+                      <Separator className="my-1" />
+                      <SelectItem value="__new_category__" className="text-primary font-medium">
+                        <span className="flex items-center gap-2">
+                          <Plus className="w-4 h-4" />
+                          Add new category
+                        </span>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
+
+                  {/* New Category Dialog */}
+                  <Dialog open={newCategoryDialogOpen} onOpenChange={setNewCategoryDialogOpen}>
+                    <DialogContent className="max-w-sm">
+                      <DialogHeader>
+                        <DialogTitle>Create New Category</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="new-category-name">Category Name</Label>
+                          <Input
+                            id="new-category-name"
+                            value={newCategoryName}
+                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            placeholder="e.g., Electronics"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleCreateCategory();
+                              }
+                            }}
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setNewCategoryDialogOpen(false);
+                              setNewCategoryName("");
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                          <Button onClick={handleCreateCategory} disabled={savingCategory}>
+                            {savingCategory && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                            Create
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </div>
 
