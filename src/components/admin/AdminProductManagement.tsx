@@ -21,10 +21,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, Pencil, Trash2, X, ImageIcon, Palette, Upload, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
+
+interface Category {
+  id: string;
+  name: string;
+  is_active: boolean;
+}
 
 interface ProductVariant {
   id: string;
@@ -96,11 +109,27 @@ const AdminProductManagement = () => {
   const [uploading, setUploading] = useState<number | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, []);
+
+  const fetchCategories = async () => {
+    const { data, error } = await supabase
+      .from("categories")
+      .select("id, name, is_active")
+      .eq("is_active", true)
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("Failed to fetch categories:", error);
+    } else {
+      setCategories(data || []);
+    }
+  };
 
   const fetchProducts = async () => {
     const { data, error } = await supabase
@@ -427,12 +456,21 @@ const AdminProductManagement = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="category">Category *</Label>
-                  <Input
-                    id="category"
+                  <Select
                     value={formData.category}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
-                    placeholder="e.g., Lighting, Scents"
-                  />
+                    onValueChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}
+                  >
+                    <SelectTrigger id="category">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.name}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
