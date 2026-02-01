@@ -235,16 +235,44 @@ const Navbar = () => {
                   Wishlist {wishlistCount > 0 && `(${wishlistCount})`}
                 </Link>
                 {user ? (
-                  <button
-                    onClick={() => {
-                      handleSignOut();
-                      setIsMenuOpen(false);
-                    }}
-                    className="flex items-center gap-3 text-sm text-destructive hover:text-destructive/80 transition-colors py-2"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Sign Out
-                  </button>
+                  <>
+                    <Link 
+                      to="/profile" 
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center gap-3 text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
+                    >
+                      <User className="w-4 h-4" />
+                      Profile
+                    </Link>
+                    <Link 
+                      to="/orders" 
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center gap-3 text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
+                    >
+                      <Package className="w-4 h-4" />
+                      Orders
+                    </Link>
+                    {isAdmin && (
+                      <Link 
+                        to="/admin" 
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-3 text-sm text-lavender-deep font-medium hover:text-foreground transition-colors py-2"
+                      >
+                        <Settings className="w-4 h-4" />
+                        Admin Panel
+                      </Link>
+                    )}
+                    <button
+                      onClick={() => {
+                        handleSignOut();
+                        setIsMenuOpen(false);
+                      }}
+                      className="flex items-center gap-3 text-sm text-destructive hover:text-destructive/80 transition-colors py-2"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Sign Out
+                    </button>
+                  </>
                 ) : (
                   <Link 
                     to="/auth" 
