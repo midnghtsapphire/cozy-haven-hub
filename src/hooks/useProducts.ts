@@ -172,13 +172,19 @@ export const useRelatedProducts = (currentProductId: string | undefined, limit =
 };
 
 export const searchProducts = async (query: string): Promise<Product[]> => {
-  if (!query.trim()) return [];
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+  
+  // Limit query length and sanitize SQL ILIKE special characters
+  if (trimmed.length > 100) return [];
+  const sanitized = trimmed.replace(/[%_\\]/g, '\\$&');
+  const pattern = `%${sanitized}%`;
 
   const { data, error } = await supabase
     .from("products")
     .select(`*, product_variants(*)`)
     .eq("is_active", true)
-    .or(`name.ilike.%${query}%,description.ilike.%${query}%,category.ilike.%${query}%,long_description.ilike.%${query}%`);
+    .or(`name.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern},long_description.ilike.${pattern}`);
 
   if (error) {
     console.error("Search failed:", error);
