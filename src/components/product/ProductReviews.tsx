@@ -209,21 +209,35 @@ const ProductReviews = ({ productId }: ProductReviewsProps) => {
   const [displayCount, setDisplayCount] = useState(5);
 
   const fetchReviews = async () => {
-    const { data, error } = await supabase
-      .from("reviews")
-      .select("*")
-      .eq("product_id", productId)
-      .order("created_at", { ascending: false });
+    if (user) {
+      // Authenticated users can query the base table (includes user_id for ownership checks)
+      const { data, error } = await supabase
+        .from("reviews")
+        .select("*")
+        .eq("product_id", productId)
+        .order("created_at", { ascending: false });
 
-    if (!error && data) {
-      setReviews(data);
+      if (!error && data) {
+        setReviews(data);
+      }
+    } else {
+      // Unauthenticated users use the public view (excludes user_id)
+      const { data, error } = await supabase
+        .from("public_reviews" as any)
+        .select("*")
+        .eq("product_id", productId)
+        .order("created_at", { ascending: false });
+
+      if (!error && data) {
+        setReviews((data as any[]).map(r => ({ ...r, user_id: "" })));
+      }
     }
     setLoading(false);
   };
 
   useEffect(() => {
     fetchReviews();
-  }, [productId]);
+  }, [productId, user]);
 
   const averageRating = reviews.length > 0
     ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length

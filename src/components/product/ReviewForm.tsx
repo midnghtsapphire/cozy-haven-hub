@@ -152,6 +152,15 @@ const ReviewForm = ({ productId, existingReview, onClose, onSuccess }: ReviewFor
       const newImageUrls = await uploadImages();
       const allImages = [...existingImages, ...newImageUrls];
 
+      // Validate all image URLs are from trusted storage
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const invalidImages = allImages.filter(url => !url.startsWith(supabaseUrl));
+      if (invalidImages.length > 0) {
+        toast.error("Invalid image URLs detected. Only uploaded images are allowed.");
+        setIsSubmitting(false);
+        return;
+      }
+
       if (isEditing) {
         const { error } = await supabase
           .from("reviews")
