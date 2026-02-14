@@ -389,6 +389,27 @@ export type Database = {
       }
     }
     Views: {
+      public_inventory: {
+        Row: {
+          is_out_of_stock: boolean | null
+          product_id: string | null
+          stock_status: string | null
+          variant_id: string | null
+        }
+        Insert: {
+          is_out_of_stock?: never
+          product_id?: string | null
+          stock_status?: never
+          variant_id?: string | null
+        }
+        Update: {
+          is_out_of_stock?: never
+          product_id?: string | null
+          stock_status?: never
+          variant_id?: string | null
+        }
+        Relationships: []
+      }
       public_reviews: {
         Row: {
           author_name: string | null
