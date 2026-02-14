@@ -389,7 +389,45 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      public_reviews: {
+        Row: {
+          author_name: string | null
+          content: string | null
+          created_at: string | null
+          helpful_count: number | null
+          id: string | null
+          images: string[] | null
+          product_id: string | null
+          rating: number | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          author_name?: string | null
+          content?: string | null
+          created_at?: string | null
+          helpful_count?: number | null
+          id?: string | null
+          images?: string[] | null
+          product_id?: string | null
+          rating?: number | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          author_name?: string | null
+          content?: string | null
+          created_at?: string | null
+          helpful_count?: number | null
+          id?: string | null
+          images?: string[] | null
+          product_id?: string | null
+          rating?: number | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
