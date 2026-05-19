@@ -13,9 +13,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - `FloatingLabelInput` component: drop-in replacement for `Input` + `Label` pairs, supports left icons and right action slots
 - `FloatingLabelTextarea` component: same floating label behavior for multi-line review text areas
 - Comprehensive README with full feature list, quick start, tech stack table, and project structure
-- `DEPLOYMENT_GUIDE.md`: step-by-step production deployment for Netlify, Vercel, and self-hosted environments
+- `DEPLOYMENT_GUIDE.md`: step-by-step production deployment for Netlify, Vercel, Cloudflare Pages, and self-hosted nginx
 - `CHANGELOG.md`: per revvel-standards, tracking all significant changes
-- `GO_TO_MARKET.md`: market research, competitive analysis, and launch strategy
+- `GO_TO_MARKET.md`: fully researched go-to-market strategy with TAM/SAM/SOM analysis (sourced from Verified Market Research, Triple Whale, Deposco 2025 DTC Report), expanded competitive landscape (Grovemade, HAY, Muji, Philips Hue, Mochi Things), SEO keyword strategy, platform-specific channel playbooks, KPIs benchmarked against 2024–2025 DTC industry data, risk assessment, and 12-month revenue projections
+- `BRAND_GUIDELINES.md`: full brand identity document — mission, vision, values, color palette (all HSL values), typography guide (Cormorant Garamond + Outfit specs), brand voice and tone by context, photography guidelines, do's/don'ts, accessibility standards
+- `SECURITY.md`: security policy with vulnerability reporting process, authentication architecture, RLS policy documentation, input validation, API key safety guidance, and responsible disclosure scope
 
 ### Changed
 - Auth page (login, signup, forgot password, reset password) — all inputs migrated to FloatingLabelInput; password fields retain eye toggle and "Forgot password?" link

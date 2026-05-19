@@ -171,6 +171,13 @@ See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for full step-by-step production 
 
 ---
 
+## Brand & Security
+
+- [BRAND_GUIDELINES.md](BRAND_GUIDELINES.md) — color palette, typography, voice, photography, do's & don'ts
+- [SECURITY.md](SECURITY.md) — vulnerability reporting and security architecture
+
+---
+
 ## License
 
 MIT © Audrey Evans / MIDNGHTSAPPHIRE
