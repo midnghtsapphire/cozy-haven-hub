@@ -4,8 +4,7 @@ import { z } from "zod";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FloatingLabelInput } from "@/components/ui/floating-label-input";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -250,34 +249,28 @@ const Profile = () => {
 
           {/* Profile Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
+            <div>
+              <FloatingLabelInput
                 id="email"
                 type="email"
+                label="Email"
                 value={user?.email || ""}
                 disabled
                 className="bg-secondary"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="mt-1.5 text-xs text-muted-foreground">
                 Email cannot be changed
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="displayName">Display Name</Label>
-              <Input
-                id="displayName"
-                type="text"
-                placeholder="Your name"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                className={cn(errors.displayName && "border-destructive")}
-              />
-              {errors.displayName && (
-                <p className="text-sm text-destructive">{errors.displayName}</p>
-              )}
-            </div>
+            <FloatingLabelInput
+              id="displayName"
+              type="text"
+              label="Display Name"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              error={errors.displayName}
+            />
 
             <Button type="submit" variant="hero" size="lg" className="w-full" disabled={saving}>
               {saving ? (
