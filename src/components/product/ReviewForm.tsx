@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { FloatingLabelInput } from "@/components/ui/floating-label-input";
+import { FloatingLabelTextarea } from "@/components/ui/floating-label-textarea";
 import { Label } from "@/components/ui/label";
 import { Star, X, ImagePlus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -241,31 +241,27 @@ const ReviewForm = ({ productId, existingReview, onClose, onSuccess }: ReviewFor
         </div>
 
         {/* Title */}
-        <div className="space-y-2">
-          <Label htmlFor="review-title">Review Title</Label>
-          <Input
-            id="review-title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Sum up your experience"
-            maxLength={100}
-          />
-          {errors.title && <p className="text-sm text-destructive">{errors.title}</p>}
-        </div>
+        <FloatingLabelInput
+          id="review-title"
+          label="Review Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={100}
+          error={errors.title}
+        />
 
         {/* Content */}
-        <div className="space-y-2">
-          <Label htmlFor="review-content">Your Review</Label>
-          <Textarea
+        <div>
+          <FloatingLabelTextarea
             id="review-content"
+            label="Your Review"
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="What did you like or dislike? What did you use this product for?"
             rows={4}
             maxLength={1000}
+            error={errors.content}
           />
-          <p className="text-xs text-muted-foreground text-right">{content.length}/1000</p>
-          {errors.content && <p className="text-sm text-destructive">{errors.content}</p>}
+          <p className="text-xs text-muted-foreground text-right mt-1">{content.length}/1000</p>
         </div>
 
         {/* Images */}
