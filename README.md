@@ -1,5 +1,9 @@
 # duskglow ✨
 
+
+<!-- AUTO-PACKAGE-BADGES:START -->
+
+<!-- AUTO-PACKAGE-BADGES:END -->
 **A curated cozy desk essentials marketplace** — where ambient lighting, tactile organizers, and comfort accessories meet a dreamy sanctuary aesthetic.
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blush)](LICENSE)
